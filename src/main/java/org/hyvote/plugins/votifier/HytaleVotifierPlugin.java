@@ -84,7 +84,6 @@ public class HytaleVotifierPlugin extends JavaPlugin {
                 VotifierConfig loaded = GSON.fromJson(json, VotifierConfig.class);
                 // Merge with defaults to handle missing/null fields
                 this.config = new VotifierConfig(
-                        loaded.port() > 0 ? loaded.port() : defaults.port(),
                         loaded.debug(),
                         loaded.keyPath() != null ? loaded.keyPath() : defaults.keyPath()
                 );
