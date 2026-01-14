@@ -1,12 +1,12 @@
-package net.hytale.plugins.votifier.http;
+package org.hyvote.plugins.votifier.http;
 
 import com.hypixel.hytale.server.core.HytaleServer;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import net.hytale.plugins.votifier.HytaleVotifierPlugin;
-import net.hytale.plugins.votifier.event.VoteEvent;
-import net.hytale.plugins.votifier.vote.Vote;
+import org.hyvote.plugins.votifier.HytaleVotifierPlugin;
+import org.hyvote.plugins.votifier.event.VoteEvent;
+import org.hyvote.plugins.votifier.vote.Vote;
 
 import java.io.IOException;
 import java.util.logging.Level;

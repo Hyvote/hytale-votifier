@@ -50,9 +50,11 @@ public class StatusServlet extends HttpServlet {
                 return;
             }
 
-            // Build JSON response
+            // Build JSON response with Base64-encoded public key
+            String publicKeyBase64 = Base64.getEncoder().encodeToString(publicKey.getEncoded());
             String json = String.format(
-                    "{\"status\": \"ok\", \"version\": \"1.0.0\", \"serverType\": \"HytaleVotifier\"}"
+                    "{\"status\": \"ok\", \"version\": \"1.0.0\", \"serverType\": \"HytaleVotifier\", \"publicKey\": \"%s\"}",
+                    publicKeyBase64
             );
 
             resp.setStatus(HttpServletResponse.SC_OK);
