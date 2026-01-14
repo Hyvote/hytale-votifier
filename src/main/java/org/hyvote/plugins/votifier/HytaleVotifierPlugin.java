@@ -8,6 +8,7 @@ import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
 import com.hypixel.hytale.server.core.plugin.PluginManager;
 import org.hyvote.plugins.votifier.command.TestVoteCommand;
 import org.hyvote.plugins.votifier.crypto.RSAKeyManager;
+import org.hyvote.plugins.votifier.http.StatusServlet;
 import org.hyvote.plugins.votifier.http.TestVoteServlet;
 import org.hyvote.plugins.votifier.http.VoteServlet;
 import net.nitrado.hytale.plugins.webserver.WebServerPlugin;
@@ -136,8 +137,9 @@ public class HytaleVotifierPlugin extends JavaPlugin {
         }
         try {
             webServerPlugin.addServlet(this, "/vote", new VoteServlet(this));
+            webServerPlugin.addServlet(this, "/status", new StatusServlet(this));
             webServerPlugin.addServlet(this, "/test", new TestVoteServlet(this));
-            getLogger().at(Level.INFO).log("Registered HTTP endpoints at /Hyvote/HytaleVotifier/vote and /test");
+            getLogger().at(Level.INFO).log("Registered HTTP endpoints at /Hyvote/HytaleVotifier/vote, /status, and /test");
         } catch (Exception e) {
             getLogger().at(Level.SEVERE).log("Failed to register HTTP endpoints: %s", e.getMessage());
         }
