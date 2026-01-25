@@ -8,6 +8,7 @@ import org.hyvote.plugins.votifier.HytaleVotifierPlugin;
 import org.hyvote.plugins.votifier.crypto.CryptoUtil;
 import org.hyvote.plugins.votifier.crypto.VoteDecryptionException;
 import org.hyvote.plugins.votifier.event.VoteEvent;
+import org.hyvote.plugins.votifier.util.VoteNotificationUtil;
 import org.hyvote.plugins.votifier.vote.Vote;
 import org.hyvote.plugins.votifier.vote.VoteParseException;
 import org.hyvote.plugins.votifier.vote.VoteParser;
@@ -100,6 +101,9 @@ public class VoteServlet extends HttpServlet {
         // Fire vote event for other plugins to handle rewards
         VoteEvent voteEvent = new VoteEvent(plugin, vote);
         HytaleServer.get().getEventBus().dispatchFor(VoteEvent.class, plugin.getClass()).dispatch(voteEvent);
+
+        // Display toast notification to the player if enabled
+        VoteNotificationUtil.displayVoteToast(plugin, vote);
 
         if (plugin.getConfig().debug()) {
             plugin.getLogger().at(Level.INFO).log("Received vote request from %s", req.getRemoteAddr());

@@ -26,7 +26,7 @@ import java.util.logging.Level;
 public class HytaleVotifierPlugin extends JavaPlugin {
 
     private static final String CONFIG_FILE = "config.json";
-    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
 
     private VotifierConfig config;
     private RSAKeyManager keyManager;
@@ -79,18 +79,31 @@ public class HytaleVotifierPlugin extends JavaPlugin {
         VotifierConfig defaults = VotifierConfig.defaults();
 
         try {
+            Files.createDirectories(configPath.getParent());
+
             if (Files.exists(configPath)) {
                 String json = Files.readString(configPath);
                 VotifierConfig loaded = GSON.fromJson(json, VotifierConfig.class);
                 // Merge with defaults to handle missing/null fields
+                VoteMessageConfig mergedVoteMessage = loaded.voteMessage() != null
+                        ? loaded.voteMessage().merge(defaults.voteMessage())
+                        : defaults.voteMessage();
                 this.config = new VotifierConfig(
                         loaded.debug(),
-                        loaded.keyPath() != null ? loaded.keyPath() : defaults.keyPath()
+                        loaded.keyPath() != null ? loaded.keyPath() : defaults.keyPath(),
+                        mergedVoteMessage
                 );
-                getLogger().at(Level.INFO).log("Loaded configuration from %s", configPath);
+
+                // Write merged config back to add any new config sections to legacy configs
+                String mergedJson = GSON.toJson(config);
+                if (!mergedJson.equals(json)) {
+                    Files.writeString(configPath, mergedJson);
+                    getLogger().at(Level.INFO).log("Updated configuration with new fields at %s", configPath);
+                } else {
+                    getLogger().at(Level.INFO).log("Loaded configuration from %s", configPath);
+                }
             } else {
                 this.config = defaults;
-                Files.createDirectories(configPath.getParent());
                 Files.writeString(configPath, GSON.toJson(config));
                 getLogger().at(Level.INFO).log("Created default configuration at %s", configPath);
             }
