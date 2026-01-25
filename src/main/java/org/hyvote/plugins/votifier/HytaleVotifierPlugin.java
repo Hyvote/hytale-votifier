@@ -11,10 +11,17 @@ import org.hyvote.plugins.votifier.crypto.RSAKeyManager;
 import org.hyvote.plugins.votifier.http.StatusServlet;
 import org.hyvote.plugins.votifier.http.TestVoteServlet;
 import org.hyvote.plugins.votifier.http.VoteServlet;
+import org.hyvote.plugins.votifier.util.UpdateChecker;
+import org.hyvote.plugins.votifier.util.UpdateNotificationUtil;
 import net.nitrado.hytale.plugins.webserver.WebServerPlugin;
+import com.hypixel.hytale.server.core.event.events.player.PlayerReadyEvent;
+import com.hypixel.hytale.server.core.entity.entities.Player;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.logging.Level;
@@ -28,12 +35,36 @@ public class HytaleVotifierPlugin extends JavaPlugin {
     private static final String CONFIG_FILE = "config.json";
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
 
+    private final String pluginVersion;
     private VotifierConfig config;
     private RSAKeyManager keyManager;
     private WebServerPlugin webServerPlugin;
+    private volatile boolean updateAvailable = false;
+    private volatile String latestVersion = null;
 
     public HytaleVotifierPlugin(@Nonnull JavaPluginInit init) {
         super(init);
+        this.pluginVersion = loadVersionFromManifest();
+    }
+
+    private String loadVersionFromManifest() {
+        try (InputStream is = getClass().getResourceAsStream("/manifest.json")) {
+            if (is == null) {
+                getLogger().at(Level.WARNING).log("manifest.json not found, using fallback version");
+                return "unknown";
+            }
+            try (InputStreamReader reader = new InputStreamReader(is, StandardCharsets.UTF_8)) {
+                var manifest = GSON.fromJson(reader, ManifestInfo.class);
+                return manifest.version() != null ? manifest.version() : "unknown";
+            }
+        } catch (IOException e) {
+            getLogger().at(Level.WARNING).log("Failed to read manifest.json: %s", e.getMessage());
+            return "unknown";
+        }
+    }
+
+    private record ManifestInfo(String Version) {
+        String version() { return Version; }
     }
 
     @Override
@@ -43,6 +74,8 @@ public class HytaleVotifierPlugin extends JavaPlugin {
         initializeKeys();
         initializeWebServer();
         registerCommands();
+        registerEventListeners();
+        checkForUpdates();
         getLogger().at(Level.INFO).log("HytaleVotifier enabled - debug=%s, keyPath=%s", config.debug(), config.keyPath());
     }
 
@@ -165,5 +198,68 @@ public class HytaleVotifierPlugin extends JavaPlugin {
         TestVoteCommand testVoteCommand = new TestVoteCommand(this);
         getCommandRegistry().registerCommand(testVoteCommand);
         getLogger().at(Level.INFO).log("Registered /testvote command");
+    }
+
+    private void registerEventListeners() {
+        getEventRegistry().registerGlobal(PlayerReadyEvent.class, this::onPlayerReady);
+        getLogger().at(Level.INFO).log("Registered player ready event listener");
+    }
+
+    private void checkForUpdates() {
+        UpdateChecker.checkForUpdate(this, pluginVersion).thenAccept(newVersion -> {
+            if (newVersion != null) {
+                this.updateAvailable = true;
+                this.latestVersion = newVersion;
+                UpdateNotificationUtil.logUpdateAvailable(this, newVersion);
+            }
+        });
+    }
+
+    private void onPlayerReady(PlayerReadyEvent event) {
+        if (!updateAvailable) {
+            return;
+        }
+
+        Player player = event.getPlayer();
+        // Check if the player has admin permission for update notifications
+        if (!player.hasPermission("votifier.admin") && !player.hasPermission("votifier.admin.update_notifications")) {
+            return;
+        }
+
+        // Send update notification to OP players
+        UpdateNotificationUtil.sendUpdateNotification(this, player);
+
+        if (config.debug()) {
+            getLogger().at(Level.INFO).log(
+                    "Notified OP player %s about available update",
+                    player.getDisplayName());
+        }
+    }
+
+    /**
+     * Returns the current plugin version.
+     *
+     * @return the plugin version string
+     */
+    public String getPluginVersion() {
+        return pluginVersion;
+    }
+
+    /**
+     * Returns whether an update is available.
+     *
+     * @return true if a newer version is available
+     */
+    public boolean isUpdateAvailable() {
+        return updateAvailable;
+    }
+
+    /**
+     * Returns the latest available version, or null if not checked or up-to-date.
+     *
+     * @return the latest version string, or null
+     */
+    public String getLatestVersion() {
+        return latestVersion;
     }
 }
