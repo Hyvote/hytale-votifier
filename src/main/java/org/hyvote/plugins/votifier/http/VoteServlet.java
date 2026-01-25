@@ -8,6 +8,7 @@ import org.hyvote.plugins.votifier.HytaleVotifierPlugin;
 import org.hyvote.plugins.votifier.crypto.CryptoUtil;
 import org.hyvote.plugins.votifier.crypto.VoteDecryptionException;
 import org.hyvote.plugins.votifier.event.VoteEvent;
+import org.hyvote.plugins.votifier.util.RewardCommandUtil;
 import org.hyvote.plugins.votifier.util.VoteNotificationUtil;
 import org.hyvote.plugins.votifier.vote.Vote;
 import org.hyvote.plugins.votifier.vote.VoteParseException;
@@ -104,6 +105,9 @@ public class VoteServlet extends HttpServlet {
 
         // Display toast notification to the player if enabled
         VoteNotificationUtil.displayVoteToast(plugin, vote);
+
+        // Execute reward commands
+        RewardCommandUtil.executeRewardCommands(plugin, vote);
 
         if (plugin.getConfig().debug()) {
             plugin.getLogger().at(Level.INFO).log("Received vote request from %s", req.getRemoteAddr());
