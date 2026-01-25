@@ -11,7 +11,7 @@
     "Website": "https://github.com/hyvote/hytale-votifier",
     "Main": "org.hyvote.plugins.votifier.HytaleVotifierPlugin",
     "ServerVersion": "*",
-    "Dependencies": {
+    "SoftDependencies": {
         "Nitrado:WebServer": "*"
     }
 }

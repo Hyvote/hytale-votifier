@@ -9,6 +9,7 @@ import com.hypixel.hytale.server.core.command.system.arguments.system.RequiredAr
 import com.hypixel.hytale.server.core.command.system.arguments.types.ArgTypes;
 import org.hyvote.plugins.votifier.HytaleVotifierPlugin;
 import org.hyvote.plugins.votifier.event.VoteEvent;
+import org.hyvote.plugins.votifier.util.VoteNotificationUtil;
 import org.hyvote.plugins.votifier.vote.Vote;
 
 import java.util.concurrent.CompletableFuture;
@@ -64,6 +65,9 @@ public class TestVoteCommand extends AbstractCommand {
         // Fire VoteEvent
         VoteEvent voteEvent = new VoteEvent(plugin, vote);
         HytaleServer.get().getEventBus().dispatchFor(VoteEvent.class, plugin.getClass()).dispatch(voteEvent);
+
+        // Display toast notification to the player if enabled
+        VoteNotificationUtil.displayVoteToast(plugin, vote);
 
         // Send feedback to command sender
         context.sendMessage(Message.raw("Test vote fired for " + username + " from " + serviceName));
