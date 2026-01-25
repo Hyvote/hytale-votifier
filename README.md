@@ -23,9 +23,9 @@ A Votifier-style plugin for Hytale that receives vote notifications from voting 
    mvn clean package
    ```
 
-2. **Copy the JAR** to your server's `plugins/` directory:
+2. **Copy the JAR** to your server's `mods/` directory:
    ```
-   plugins/
+   mods/
    └── HytaleVotifier-1.0.0.jar
    ```
 
@@ -44,7 +44,7 @@ A Votifier-style plugin for Hytale that receives vote notifications from voting 
 
 RSA keys are stored in the plugin's data directory:
 ```
-plugins/Hyvote-HytaleVotifier/
+mods/Hyvote_HytaleVotifier/
 └── keys/
     ├── public.key    # Share with voting sites
     └── private.key   # Keep secure - never share
