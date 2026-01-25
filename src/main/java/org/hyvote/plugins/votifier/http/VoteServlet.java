@@ -9,6 +9,7 @@ import org.hyvote.plugins.votifier.crypto.CryptoUtil;
 import org.hyvote.plugins.votifier.crypto.VoteDecryptionException;
 import org.hyvote.plugins.votifier.event.VoteEvent;
 import org.hyvote.plugins.votifier.util.BroadcastUtil;
+import org.hyvote.plugins.votifier.util.RewardCommandUtil;
 import org.hyvote.plugins.votifier.util.VoteNotificationUtil;
 import org.hyvote.plugins.votifier.vote.Vote;
 import org.hyvote.plugins.votifier.vote.VoteParseException;
@@ -108,6 +109,9 @@ public class VoteServlet extends HttpServlet {
 
         // Broadcast vote announcement to all online players if enabled
         BroadcastUtil.broadcastVote(plugin, vote);
+
+        // Execute reward commands
+        RewardCommandUtil.executeRewardCommands(plugin, vote);
 
         if (plugin.getConfig().debug()) {
             plugin.getLogger().at(Level.INFO).log("Received vote request from %s", req.getRemoteAddr());

@@ -9,7 +9,6 @@ import com.hypixel.hytale.server.core.plugin.PluginManager;
 import org.hyvote.plugins.votifier.command.TestVoteCommand;
 import org.hyvote.plugins.votifier.crypto.RSAKeyManager;
 import org.hyvote.plugins.votifier.http.StatusServlet;
-import org.hyvote.plugins.votifier.http.TestVoteServlet;
 import org.hyvote.plugins.votifier.http.VoteServlet;
 import org.hyvote.plugins.votifier.util.UpdateChecker;
 import org.hyvote.plugins.votifier.util.UpdateNotificationUtil;
@@ -128,7 +127,8 @@ public class HytaleVotifierPlugin extends JavaPlugin {
                         loaded.debug(),
                         loaded.keyPath() != null ? loaded.keyPath() : defaults.keyPath(),
                         mergedVoteMessage,
-                        mergedBroadcast
+                        mergedBroadcast,
+                        loaded.rewardCommands() != null ? loaded.rewardCommands() : defaults.rewardCommands()
                 );
 
                 // Write merged config back to add any new config sections to legacy configs
@@ -187,8 +187,7 @@ public class HytaleVotifierPlugin extends JavaPlugin {
         try {
             webServerPlugin.addServlet(this, "/vote", new VoteServlet(this));
             webServerPlugin.addServlet(this, "/status", new StatusServlet(this));
-            webServerPlugin.addServlet(this, "/test", new TestVoteServlet(this));
-            getLogger().at(Level.INFO).log("Registered HTTP endpoints at /Hyvote/HytaleVotifier/vote, /status, and /test");
+            getLogger().at(Level.INFO).log("Registered HTTP endpoints at /Hyvote/HytaleVotifier/vote and /status");
         } catch (Exception e) {
             getLogger().at(Level.SEVERE).log("Failed to register HTTP endpoints: %s", e.getMessage());
         }

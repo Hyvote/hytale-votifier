@@ -46,13 +46,9 @@ public final class VoteNotificationUtil {
             return;
         }
 
-        // Replace placeholders in messages
-        String titleText = messageConfig.titleMessage()
-                .replace("{from}", vote.serviceName())
-                .replace("{username}", vote.username());
-        String descriptionText = messageConfig.descriptionMessage()
-                .replace("{from}", vote.serviceName())
-                .replace("{username}", vote.username());
+        // Replace placeholders in messages (single-pass to avoid issues if values contain placeholder syntax)
+        String titleText = PlaceholderUtil.replaceVotePlaceholders(messageConfig.titleMessage(), vote);
+        String descriptionText = PlaceholderUtil.replaceVotePlaceholders(messageConfig.descriptionMessage(), vote);
 
         // Parse messages with TaleMessage formatting
         Message title = TaleMessage.parse(titleText);

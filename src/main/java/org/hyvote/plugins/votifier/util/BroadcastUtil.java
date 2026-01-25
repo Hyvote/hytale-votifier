@@ -41,10 +41,8 @@ public final class BroadcastUtil {
             return;
         }
 
-        // Replace placeholders in message
-        String messageText = broadcastConfig.message()
-                .replace("{from}", vote.serviceName())
-                .replace("{username}", vote.username());
+        // Replace placeholders in message (single-pass to avoid issues if values contain placeholder syntax)
+        String messageText = PlaceholderUtil.replaceVotePlaceholders(broadcastConfig.message(), vote);
 
         // Parse message with TaleMessage formatting
         Message message = TaleMessage.parse(messageText);
