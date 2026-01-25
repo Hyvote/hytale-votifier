@@ -6,8 +6,9 @@ package org.hyvote.plugins.votifier;
  * @param debug        Whether to enable debug logging (default false).
  * @param keyPath      Subdirectory for RSA keys relative to plugin config directory (default "keys").
  * @param voteMessage  Configuration for vote notification toast messages.
+ * @param broadcast    Configuration for server-wide vote broadcast announcements.
  */
-public record VotifierConfig(boolean debug, String keyPath, VoteMessageConfig voteMessage) {
+public record VotifierConfig(boolean debug, String keyPath, VoteMessageConfig voteMessage, BroadcastConfig broadcast) {
 
     /**
      * Returns a VotifierConfig with default values.
@@ -15,6 +16,6 @@ public record VotifierConfig(boolean debug, String keyPath, VoteMessageConfig vo
      * @return default configuration
      */
     public static VotifierConfig defaults() {
-        return new VotifierConfig(false, "keys", VoteMessageConfig.defaults());
+        return new VotifierConfig(false, "keys", VoteMessageConfig.defaults(), BroadcastConfig.defaults());
     }
 }
