@@ -144,7 +144,7 @@ Execute server commands when votes are received. Each command in the array can h
 "rewardCommands": [
   {
     "enabled": true,
-    "command": "give {username} Ingredient_Stick 5",
+    "command": "give {username} Ingredient_Stick",
     "chance": 1.0
   },
   {
@@ -154,13 +154,13 @@ Execute server commands when votes are received. Each command in the array can h
   },
   {
     "enabled": true,
-    "command": "give {username} Ingredient_Diamond",
+    "command": "give {username} Weapon_Longsword_Adamantite_Saurian",
     "chance": 0.05
   }
 ]
 ```
 
-☝️ In this example, every voter receives 5 sticks, has a 25% chance for a gold bar, and a 5% chance for a diamond. 💎
+☝️ In this example, every voter receives a stick, has a 25% chance for a gold bar, and a 5% chance for a rare longsword! ⚔️
 
 > ⚠️ **Security Note:** Usernames and service names are validated before command execution to prevent command injection. Only alphanumeric characters and underscores are allowed in usernames.
 
