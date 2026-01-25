@@ -13,14 +13,15 @@ import java.util.logging.Level;
  *
  * <p>Endpoint: GET /Hyvote/HytaleVotifier/status</p>
  *
- * <p>Returns JSON with server status information.</p>
+ * <p>Returns JSON with server status information including supported protocols.</p>
  *
  * <p>Response format:</p>
  * <pre>
  * {
  *   "status": "ok",
  *   "version": "1.0.0",
- *   "serverType": "HytaleVotifier"
+ *   "serverType": "HytaleVotifier",
+ *   "protocols": {"v1": true, "v2": true}
  * }
  * </pre>
  */
@@ -37,7 +38,15 @@ public class StatusServlet extends HttpServlet {
         resp.setContentType("application/json");
 
         try {
-            String json = "{\"status\": \"ok\", \"version\": \"1.0.0\", \"serverType\": \"HytaleVotifier\"}";
+            boolean v2Enabled = plugin.getConfig().voteSites() != null
+                    && plugin.getConfig().voteSites().isV2Enabled();
+
+            String json = String.format(
+                    "{\"status\": \"ok\", \"version\": \"%s\", \"serverType\": \"HytaleVotifier\", " +
+                    "\"protocols\": {\"v1\": true, \"v2\": %b}}",
+                    plugin.getPluginVersion(),
+                    v2Enabled
+            );
             resp.setStatus(HttpServletResponse.SC_OK);
             resp.getWriter().println(json);
         } catch (Exception e) {

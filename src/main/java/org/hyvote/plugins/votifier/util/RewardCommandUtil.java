@@ -22,12 +22,6 @@ public final class RewardCommandUtil {
      */
     private static final Pattern SAFE_USERNAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_]{1,32}$");
 
-    /**
-     * Pattern for valid service names: alphanumeric, underscores, hyphens, and spaces.
-     * More permissive than usernames since service names are typically from trusted voting sites.
-     */
-    private static final Pattern SAFE_SERVICE_NAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_\\- ]{1,64}$");
-
     private RewardCommandUtil() {
         // Utility class
     }
@@ -43,16 +37,6 @@ public final class RewardCommandUtil {
     }
 
     /**
-     * Validates that a service name is safe for use in command substitution.
-     *
-     * @param serviceName the service name to validate
-     * @return true if the service name contains only safe characters
-     */
-    public static boolean isValidServiceName(String serviceName) {
-        return serviceName != null && SAFE_SERVICE_NAME_PATTERN.matcher(serviceName).matches();
-    }
-
-    /**
      * Executes configured reward commands for a received vote.
      *
      * <p>Each command is executed with its configured probability (chance).
@@ -62,10 +46,9 @@ public final class RewardCommandUtil {
      *   <li>{@code {from}} - The name of the voting site</li>
      * </ul>
      *
-     * <p><strong>Security:</strong> Vote data is validated before command execution to prevent
-     * command injection attacks. Usernames must be alphanumeric/underscore (1-32 chars) and
-     * service names must be alphanumeric/underscore/hyphen/space (1-64 chars). Votes with
-     * invalid data are rejected and logged.</p>
+     * <p><strong>Security:</strong> Usernames are validated before command execution to prevent
+     * command injection attacks. Usernames must be alphanumeric/underscore (1-32 chars).
+     * Votes with invalid usernames are rejected and logged.</p>
      *
      * @param plugin the plugin instance for config and logging
      * @param vote   the vote that triggered the reward commands
@@ -76,17 +59,11 @@ public final class RewardCommandUtil {
             return;
         }
 
-        // Validate vote data to prevent command injection
+        // Validate username to prevent command injection
         if (!isValidUsername(vote.username())) {
             plugin.getLogger().at(Level.WARNING).log(
                     "Skipping reward commands: invalid username '%s' (must be alphanumeric/underscore, 1-32 chars)",
                     vote.username());
-            return;
-        }
-        if (!isValidServiceName(vote.serviceName())) {
-            plugin.getLogger().at(Level.WARNING).log(
-                    "Skipping reward commands: invalid service name '%s' (must be alphanumeric/underscore/hyphen/space, 1-64 chars)",
-                    vote.serviceName());
             return;
         }
 

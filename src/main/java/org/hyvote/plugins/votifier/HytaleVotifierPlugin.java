@@ -10,6 +10,7 @@ import org.hyvote.plugins.votifier.command.TestVoteCommand;
 import org.hyvote.plugins.votifier.crypto.RSAKeyManager;
 import org.hyvote.plugins.votifier.http.StatusServlet;
 import org.hyvote.plugins.votifier.http.VoteServlet;
+import org.hyvote.plugins.votifier.socket.VotifierSocketServer;
 import org.hyvote.plugins.votifier.util.UpdateChecker;
 import org.hyvote.plugins.votifier.util.UpdateNotificationUtil;
 import net.nitrado.hytale.plugins.webserver.WebServerPlugin;
@@ -38,6 +39,7 @@ public class HytaleVotifierPlugin extends JavaPlugin {
     private VotifierConfig config;
     private RSAKeyManager keyManager;
     private WebServerPlugin webServerPlugin;
+    private VotifierSocketServer socketServer;
     private volatile boolean updateAvailable = false;
     private volatile String latestVersion = null;
 
@@ -72,6 +74,7 @@ public class HytaleVotifierPlugin extends JavaPlugin {
         loadConfig();
         initializeKeys();
         initializeWebServer();
+        initializeSocketServer();
         registerCommands();
         registerEventListeners();
         checkForUpdates();
@@ -80,6 +83,9 @@ public class HytaleVotifierPlugin extends JavaPlugin {
 
     @Override
     protected void shutdown() {
+        if (socketServer != null && socketServer.isRunning()) {
+            socketServer.stop();
+        }
         if (webServerPlugin != null) {
             webServerPlugin.removeServlets(this);
             getLogger().at(Level.INFO).log("Unregistered HTTP endpoints");
@@ -123,12 +129,20 @@ public class HytaleVotifierPlugin extends JavaPlugin {
                 BroadcastConfig mergedBroadcast = loaded.broadcast() != null
                         ? loaded.broadcast().merge(defaults.broadcast())
                         : defaults.broadcast();
+                VoteSiteTokenConfig mergedVoteSites = loaded.voteSites() != null
+                        ? loaded.voteSites()
+                        : defaults.voteSites();
+                SocketConfig mergedSocket = loaded.socket() != null
+                        ? loaded.socket().merge(defaults.socket())
+                        : defaults.socket();
                 this.config = new VotifierConfig(
                         loaded.debug(),
                         loaded.keyPath() != null ? loaded.keyPath() : defaults.keyPath(),
                         mergedVoteMessage,
                         mergedBroadcast,
-                        loaded.rewardCommands() != null ? loaded.rewardCommands() : defaults.rewardCommands()
+                        loaded.rewardCommands() != null ? loaded.rewardCommands() : defaults.rewardCommands(),
+                        mergedVoteSites,
+                        mergedSocket
                 );
 
                 // Write merged config back to add any new config sections to legacy configs
@@ -190,6 +204,26 @@ public class HytaleVotifierPlugin extends JavaPlugin {
             getLogger().at(Level.INFO).log("Registered HTTP endpoints at /Hyvote/HytaleVotifier/vote and /status");
         } catch (Exception e) {
             getLogger().at(Level.SEVERE).log("Failed to register HTTP endpoints: %s", e.getMessage());
+        }
+    }
+
+    private void initializeSocketServer() {
+        SocketConfig socketConfig = config.socket();
+        if (socketConfig == null || !socketConfig.enabled()) {
+            getLogger().at(Level.INFO).log("V2 socket server disabled");
+            return;
+        }
+
+        if (config.voteSites() == null || !config.voteSites().isV2Enabled()) {
+            getLogger().at(Level.WARNING).log("V2 socket server enabled but no voteSites configured - socket server will reject all votes");
+        }
+
+        try {
+            socketServer = new VotifierSocketServer(this, socketConfig.port());
+            socketServer.start();
+        } catch (IOException e) {
+            getLogger().at(Level.SEVERE).log("Failed to start V2 socket server on port %d: %s",
+                    socketConfig.port(), e.getMessage());
         }
     }
 
