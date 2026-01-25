@@ -217,8 +217,8 @@ public class HytaleVotifierPlugin extends JavaPlugin {
         }
 
         Player player = event.getPlayer();
-        // Check if the player has OP/admin permission
-        if (!player.hasPermission("hyvote.admin")) {
+        // Check if the player has admin permission for update notifications
+        if (!player.hasPermission("votifier.admin") && !player.hasPermission("votifier.admin.update_notifications")) {
             return;
         }
 
