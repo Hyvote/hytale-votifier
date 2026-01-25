@@ -1,7 +1,7 @@
 {
     "Group": "Hyvote",
     "Name": "HytaleVotifier",
-    "Version": "1.0.0",
+    "Version": "${revision}",
     "Authors": [
         {
             "Name": "HytaleVotifier Contributors",

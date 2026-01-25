@@ -19,6 +19,9 @@ import com.hypixel.hytale.server.core.entity.entities.Player;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.logging.Level;
@@ -30,9 +33,9 @@ import java.util.logging.Level;
 public class HytaleVotifierPlugin extends JavaPlugin {
 
     private static final String CONFIG_FILE = "config.json";
-    private static final String PLUGIN_VERSION = "1.0.0";
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
 
+    private final String pluginVersion;
     private VotifierConfig config;
     private RSAKeyManager keyManager;
     private WebServerPlugin webServerPlugin;
@@ -41,6 +44,27 @@ public class HytaleVotifierPlugin extends JavaPlugin {
 
     public HytaleVotifierPlugin(@Nonnull JavaPluginInit init) {
         super(init);
+        this.pluginVersion = loadVersionFromManifest();
+    }
+
+    private String loadVersionFromManifest() {
+        try (InputStream is = getClass().getResourceAsStream("/manifest.json")) {
+            if (is == null) {
+                getLogger().at(Level.WARNING).log("manifest.json not found, using fallback version");
+                return "unknown";
+            }
+            try (InputStreamReader reader = new InputStreamReader(is, StandardCharsets.UTF_8)) {
+                var manifest = GSON.fromJson(reader, ManifestInfo.class);
+                return manifest.version() != null ? manifest.version() : "unknown";
+            }
+        } catch (IOException e) {
+            getLogger().at(Level.WARNING).log("Failed to read manifest.json: %s", e.getMessage());
+            return "unknown";
+        }
+    }
+
+    private record ManifestInfo(String Version) {
+        String version() { return Version; }
     }
 
     @Override
@@ -178,7 +202,7 @@ public class HytaleVotifierPlugin extends JavaPlugin {
     }
 
     private void checkForUpdates() {
-        UpdateChecker.checkForUpdate(this, PLUGIN_VERSION).thenAccept(newVersion -> {
+        UpdateChecker.checkForUpdate(this, pluginVersion).thenAccept(newVersion -> {
             if (newVersion != null) {
                 this.updateAvailable = true;
                 this.latestVersion = newVersion;
@@ -214,7 +238,7 @@ public class HytaleVotifierPlugin extends JavaPlugin {
      * @return the plugin version string
      */
     public String getPluginVersion() {
-        return PLUGIN_VERSION;
+        return pluginVersion;
     }
 
     /**
