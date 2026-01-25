@@ -22,7 +22,7 @@ import java.util.logging.Level;
  *
  * <p>Usage: /testvote &lt;username&gt; [service]</p>
  *
- * <p>Allows admins with the hyvote.testvote permission to fire test VoteEvents
+ * <p>Allows admins with the votifier.admin.testvote permission to fire test VoteEvents
  * from within the game, useful for testing vote reward plugins without requiring
  * actual vote site integration.</p>
  *
@@ -45,11 +45,11 @@ public class TestVoteCommand extends AbstractCommand {
         this.plugin = plugin;
 
         // Require permission for access
-        requirePermission("hyvote.testvote");
+        requirePermission("votifier.admin.testvote");
 
         // Define command arguments
-        this.usernameArg = withRequiredArg("username", "hyvote.testvote.username.desc", ArgTypes.STRING);
-        this.serviceArg = withDefaultArg("service", "hyvote.testvote.service.desc", ArgTypes.STRING, "TestService", "TestService");
+        this.usernameArg = withRequiredArg("username", "votifier.admin.testvote.username.desc", ArgTypes.STRING);
+        this.serviceArg = withDefaultArg("service", "votifier.admin.testvote.service.desc", ArgTypes.STRING, "TestService", "TestService");
     }
 
     @Override
