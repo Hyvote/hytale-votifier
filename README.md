@@ -18,7 +18,7 @@ A Votifier-style plugin for Hytale that receives vote notifications from voting 
 | 📢 **Vote Broadcasting** | Announce votes to all online players with customizable messages |
 | 🔔 **Toast Notifications** | Display in-game toast popups to voters using TaleMessage formatting |
 | 🔄 **Update Checker** | Automatic GitHub release checking with admin notifications |
-| 🧪 **Debug Tools** | Test endpoint and `/testvote` command for development and troubleshooting |
+| 🧪 **Debug Tools** | `/testvote` command for development and troubleshooting |
 
 ---
 
@@ -239,36 +239,6 @@ Receives encrypted vote notifications from voting sites.
 - ⚠️ `400 Bad Request` — Empty payload, invalid Base64, decryption failed, or invalid vote format
 - ❌ `500 Internal Server Error` — Unexpected server error
 
-### GET /test
-
-Test endpoint for debugging vote flow without encryption. Fires a real `VoteEvent`.
-
-**Query Parameters:**
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `username` | Yes | — | Player username for test vote |
-| `serviceName` | No | `TestService` | Voting site identifier |
-| `address` | No | Request IP | Voter's IP address |
-
-**Example:**
-```
-GET /Hyvote/HytaleVotifier/test?username=TestPlayer&serviceName=MyVoteSite
-```
-
-**Response:**
-```json
-{
-  "status": "ok",
-  "message": "Test vote fired for TestPlayer",
-  "vote": {
-    "serviceName": "MyVoteSite",
-    "username": "TestPlayer",
-    "address": "127.0.0.1",
-    "timestamp": 1705267200000
-  }
-}
-```
-
 ---
 
 ## 🔐 Vote Protocol
@@ -405,17 +375,7 @@ Players with the appropriate permissions see a chat message with clickable links
 
 ## 🧪 Testing
 
-### Using the Test Endpoint
-
-```bash
-# Fire a test vote via HTTP
-curl "http://localhost:8080/Hyvote/HytaleVotifier/test?username=TestPlayer"
-
-# With custom service name
-curl "http://localhost:8080/Hyvote/HytaleVotifier/test?username=TestPlayer&serviceName=MyVoteSite"
-```
-
-### Using the /testvote Command
+### /testvote Command
 
 In-game command for testing vote events:
 
