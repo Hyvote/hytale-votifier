@@ -6,6 +6,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.hyvote.plugins.votifier.HytaleVotifierPlugin;
 import org.hyvote.plugins.votifier.event.VoteEvent;
+import org.hyvote.plugins.votifier.util.BroadcastUtil;
+import org.hyvote.plugins.votifier.util.VoteNotificationUtil;
 import org.hyvote.plugins.votifier.vote.Vote;
 
 import java.io.IOException;
@@ -72,6 +74,12 @@ public class TestVoteServlet extends HttpServlet {
             // Fire VoteEvent
             VoteEvent voteEvent = new VoteEvent(plugin, vote);
             HytaleServer.get().getEventBus().dispatchFor(VoteEvent.class, plugin.getClass()).dispatch(voteEvent);
+
+            // Display toast notification to the player if enabled
+            VoteNotificationUtil.displayVoteToast(plugin, vote);
+
+            // Broadcast vote announcement to all online players if enabled
+            BroadcastUtil.broadcastVote(plugin, vote);
 
             // Log if debug enabled
             if (plugin.getConfig().debug()) {

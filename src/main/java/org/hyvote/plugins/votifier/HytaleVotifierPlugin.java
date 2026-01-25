@@ -88,10 +88,14 @@ public class HytaleVotifierPlugin extends JavaPlugin {
                 VoteMessageConfig mergedVoteMessage = loaded.voteMessage() != null
                         ? loaded.voteMessage().merge(defaults.voteMessage())
                         : defaults.voteMessage();
+                BroadcastConfig mergedBroadcast = loaded.broadcast() != null
+                        ? loaded.broadcast().merge(defaults.broadcast())
+                        : defaults.broadcast();
                 this.config = new VotifierConfig(
                         loaded.debug(),
                         loaded.keyPath() != null ? loaded.keyPath() : defaults.keyPath(),
-                        mergedVoteMessage
+                        mergedVoteMessage,
+                        mergedBroadcast
                 );
 
                 // Write merged config back to add any new config sections to legacy configs
