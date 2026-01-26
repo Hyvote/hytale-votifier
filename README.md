@@ -312,10 +312,10 @@ Remind players to vote when they join the server if they haven't voted recently.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `enabled` | boolean | `true` | Enable the vote reminder system |
+| `enabled` | boolean | `false` | Enable the vote reminder system |
 | `sendOnJoin` | boolean | `true` | Send reminders when players join the server |
 | `voteExpiryInterval` | number | `24` | Hours before a vote "expires" and reminders resume |
-| `delayInSeconds` | number | `60` | Delay (in seconds) after joining before sending the reminder |
+| `delayInSeconds` | number | `15` | Delay (in seconds) after joining before sending the reminder |
 
 #### Storage Settings
 
@@ -449,7 +449,7 @@ Health check endpoint that returns server status information.
 ```json
 {
   "status": "ok",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "serverType": "HytaleVotifier",
   "protocols": {
     "v1": true,

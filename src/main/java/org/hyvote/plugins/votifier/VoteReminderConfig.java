@@ -10,7 +10,7 @@ package org.hyvote.plugins.votifier;
  * @param enabled          Whether the vote reminder system is enabled (default false)
  * @param sendOnJoin       Whether to send reminders when a player joins (default true)
  * @param voteExpiryInterval How long (in hours) before a vote "expires" and reminders resume (default 24)
- * @param delayInSeconds   Delay (in seconds) after joining before sending the reminder (default 60)
+ * @param delayInSeconds   Delay (in seconds) after joining before sending the reminder (default 15)
  * @param storage          Configuration for vote storage backend (default SQLite)
  * @param message          Configuration for the direct message reminder
  * @param title            Configuration for the title display reminder
@@ -36,10 +36,10 @@ public record VoteReminderConfig(
      */
     public static VoteReminderConfig defaults() {
         return new VoteReminderConfig(
-                true,
+                false,
                 true,
                 24,
-                60,
+                15,
                 VoteStorageConfig.defaults(),
                 VoteReminderMessageConfig.defaults(),
                 VoteReminderTitleConfig.defaults(),
