@@ -19,6 +19,7 @@ A Votifier-style plugin for Hytale that receives vote notifications from voting 
 | 🔔 **Toast Notifications** | Display in-game toast popups to voters using TaleMessage formatting |
 | 🔄 **Update Checker** | Automatic GitHub release checking with admin notifications |
 | 🧪 **Debug Tools** | `/testvote` command for development and troubleshooting |
+| 🗳️ **Vote Command** | `/vote` command displays clickable voting site links to players |
 
 ---
 
@@ -103,6 +104,18 @@ mods/Hyvote_HytaleVotifier/
   "protocols": {
     "v1Enabled": true,
     "v2Enabled": true
+  },
+  "voteCommand": {
+    "enabled": false,
+    "header": "<red>================<orange> Vote Now </orange>================</red>",
+    "siteTemplate": "<orange><click:{link}>~{name}~</click></orange>",
+    "footer": "<red>==============<orange> Earn Rewards </orange>==============</red>",
+    "sites": [
+      {
+        "name": "Hyvote.org",
+        "url": "https://hyvote.org"
+      }
+    ]
   }
 }
 ```
@@ -118,6 +131,7 @@ mods/Hyvote_HytaleVotifier/
 | `rewardCommands` | array | — | Commands to execute on vote (see below) |
 | `internalHttpServer` | object | — | Fallback HTTP server settings (see below) |
 | `protocols` | object | — | Protocol enable/disable settings (see below) |
+| `voteCommand` | object | — | `/vote` command settings (see below) |
 
 ### 🔔 Vote Message (Toast Notifications)
 
@@ -199,6 +213,45 @@ Control which vote protocols are enabled. Both protocols are enabled by default.
 > 💡 **Note:** V1 protocol requires an HTTP server. If V1 is disabled, the HTTP server will not be started (even if available), and votes can only be received via the V2 socket server.
 
 > 💡 **Note:** V2 protocol can work over both HTTP and socket. If you disable V1 but keep V2 enabled, configure the socket server to receive V2 votes.
+
+### 🗳️ Vote Command Settings
+
+Display clickable voting site links to players with `/vote`.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enabled` | boolean | `false` | Enable the `/vote` command |
+| `header` | string | `"<red>================<orange> Vote Now </orange>================</red>"` | Header message displayed before sites |
+| `siteTemplate` | string | `"<orange><click:{link}>~{name}~</click></orange>"` | Template for each site with `{name}` and `{link}` placeholders |
+| `footer` | string | `"<red>==============<orange> Earn Rewards </orange>==============</red>"` | Footer message displayed after sites |
+| `sites` | array | — | List of voting sites (displayed in order) |
+
+**Site object properties:**
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `name` | string | Display name of the voting site |
+| `url` | string | URL where players can vote |
+
+**Example vote command configuration:**
+```json
+"voteCommand": {
+  "enabled": true,
+  "header": "<gold>★★★ Vote for our server! ★★★</gold>",
+  "siteTemplate": "<yellow>➤</yellow> <click:{link}><aqua>{name}</aqua></click>",
+  "footer": "<gray>Thank you for supporting us!</gray>",
+  "sites": [
+    {
+      "name": "Hyvote.org",
+      "url": "https://hyvote.org/servers/my-server"
+    },
+    {
+      "name": "TopHytaleSites",
+      "url": "https://tophytalesites.com/vote/my-server"
+    }
+  ]
+}
+```
 
 ### 🏷️ Available Placeholders
 

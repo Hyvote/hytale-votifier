@@ -7,6 +7,7 @@ import com.hypixel.hytale.server.core.plugin.JavaPlugin;
 import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
 import com.hypixel.hytale.server.core.plugin.PluginManager;
 import org.hyvote.plugins.votifier.command.TestVoteCommand;
+import org.hyvote.plugins.votifier.command.VoteCommand;
 import org.hyvote.plugins.votifier.crypto.RSAKeyManager;
 import org.hyvote.plugins.votifier.http.FallbackHttpServer;
 import org.hyvote.plugins.votifier.http.NitradoWebServerBridge;
@@ -144,6 +145,9 @@ public class HytaleVotifierPlugin extends JavaPlugin {
                 ProtocolConfig mergedProtocols = loaded.protocols() != null
                         ? loaded.protocols().merge(defaults.protocols())
                         : defaults.protocols();
+                VoteCommandConfig mergedVoteCommand = loaded.voteCommand() != null
+                        ? loaded.voteCommand().merge(defaults.voteCommand())
+                        : defaults.voteCommand();
                 this.config = new VotifierConfig(
                         loaded.debug(),
                         loaded.keyPath() != null ? loaded.keyPath() : defaults.keyPath(),
@@ -153,7 +157,8 @@ public class HytaleVotifierPlugin extends JavaPlugin {
                         mergedVoteSites,
                         mergedSocket,
                         mergedHttpServer,
-                        mergedProtocols
+                        mergedProtocols,
+                        mergedVoteCommand
                 );
 
                 // Write merged config back to add any new config sections to legacy configs
@@ -264,6 +269,10 @@ public class HytaleVotifierPlugin extends JavaPlugin {
         TestVoteCommand testVoteCommand = new TestVoteCommand(this);
         getCommandRegistry().registerCommand(testVoteCommand);
         getLogger().at(Level.INFO).log("Registered /testvote command");
+
+        VoteCommand voteCommand = new VoteCommand(this);
+        getCommandRegistry().registerCommand(voteCommand);
+        getLogger().at(Level.INFO).log("Registered /vote command");
     }
 
     private void registerEventListeners() {
