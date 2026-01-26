@@ -10,10 +10,11 @@ A Votifier-style plugin for Hytale that receives vote notifications from voting 
 
 | Feature | Description |
 |---------|-------------|
-| 🔐 **RSA Encryption** | 2048-bit RSA key pair generation with automatic first-run initialization |
-| 🌐 **HTTP Endpoints** | REST API for receiving encrypted votes and checking server status |
+| 🔐 **Dual Protocol Support** | V1 (RSA encryption) and V2 (HMAC-SHA256 signatures) for maximum compatibility |
+| 🔌 **V2 Socket Server** | Dedicated TCP socket server with challenge-response authentication |
+| 🌐 **HTTP Endpoints** | REST API for receiving votes (auto-detects V1/V2) and checking server status |
 | 📡 **Event System** | Fires `VoteEvent` via Hytale's event bus for other plugins to handle rewards |
-| 🛡️ **Secure Protocol** | Compatible with standard Votifier encryption (RSA/ECB/PKCS1Padding) |
+| 🛡️ **Secure Protocols** | RSA/ECB/PKCS1Padding (V1) and HMAC-SHA256 with per-site tokens (V2) |
 | 🎰 **Reward Commands** | Execute configurable server commands with random chance when votes are received |
 | 📢 **Vote Broadcasting** | Announce votes to all online players with customizable messages |
 | 🔔 **Toast Notifications** | Display in-game toast popups to voters using TaleMessage formatting |
@@ -97,6 +98,16 @@ mods/Hyvote_HytaleVotifier/
       "chance": 0.1
     }
   ],
+  "voteSites": {
+    "tokens": {
+      "Hyvote": "your-secret-token-here",
+      "MyVotingSite": "another-secret-token"
+    }
+  },
+  "socketServer": {
+    "enabled": true,
+    "port": 8192
+  },
   "internalHttpServer": {
     "enabled": true,
     "port": 8080
@@ -129,6 +140,8 @@ mods/Hyvote_HytaleVotifier/
 | `voteMessage` | object | — | Toast notification settings (see below) |
 | `broadcast` | object | — | Server-wide broadcast settings (see below) |
 | `rewardCommands` | array | — | Commands to execute on vote (see below) |
+| `voteSites` | object | — | V2 protocol service tokens (see [V2 Configuration](#v2-configuration)) |
+| `socketServer` | object | — | V2 socket server settings (see [V2 Configuration](#v2-configuration)) |
 | `internalHttpServer` | object | — | Fallback HTTP server settings (see below) |
 | `protocols` | object | — | Protocol enable/disable settings (see below) |
 | `voteCommand` | object | — | `/vote` command settings (see below) |
@@ -246,8 +259,8 @@ Display clickable voting site links to players with `/vote`.
       "url": "https://hyvote.org/servers/my-server"
     },
     {
-      "name": "TopHytaleSites",
-      "url": "https://tophytalesites.com/vote/my-server"
+      "name": "MyVotingSite",
+      "url": "https://example.com/vote/my-server"
     }
   ]
 }
@@ -293,7 +306,11 @@ Health check endpoint that returns server status information.
 {
   "status": "ok",
   "version": "1.0.0",
-  "serverType": "HytaleVotifier"
+  "serverType": "HytaleVotifier",
+  "protocols": {
+    "v1": true,
+    "v2": true
+  }
 }
 ```
 
@@ -303,11 +320,27 @@ Health check endpoint that returns server status information.
 
 ### POST /vote
 
-Receives encrypted vote notifications from voting sites.
+Receives vote notifications from voting sites. The endpoint auto-detects the protocol (V1 or V2) based on the payload format.
+
+#### V1 Request (RSA Encrypted)
+
+**Content-Type:** `text/plain` or `application/octet-stream`
 
 **Request Body:** Base64-encoded RSA-encrypted vote payload
 
-**Response (Success):**
+#### V2 Request (HMAC Signed)
+
+**Content-Type:** `application/json`
+
+**Request Body:**
+```json
+{
+  "payload": "{\"serviceName\":\"Hyvote\",\"username\":\"PlayerName\",\"address\":\"192.168.1.1\",\"timestamp\":1704067200}",
+  "signature": "BASE64_HMAC_SHA256_SIGNATURE"
+}
+```
+
+#### Response (Success)
 ```json
 {
   "status": "ok",
@@ -315,7 +348,7 @@ Receives encrypted vote notifications from voting sites.
 }
 ```
 
-**Response (Error):**
+#### Response (Error)
 ```json
 {
   "status": "error",
@@ -325,16 +358,27 @@ Receives encrypted vote notifications from voting sites.
 
 **Status Codes:**
 - ✅ `200 OK` — Vote received and processed successfully
-- ⚠️ `400 Bad Request` — Empty payload, invalid Base64, decryption failed, or invalid vote format
+- ⚠️ `400 Bad Request` — Empty payload, invalid format, decryption/signature failed, or invalid vote data
 - ❌ `500 Internal Server Error` — Unexpected server error
 
 ---
 
-## 🔐 Vote Protocol
+## 🔐 Vote Protocols
 
-HytaleVotifier uses the standard Votifier protocol for secure vote transmission.
+HytaleVotifier supports two protocols for receiving votes from voting sites:
 
-### 📄 Payload Format
+| Protocol | Authentication | Transport | Use Case |
+|----------|---------------|-----------|----------|
+| **V1** | RSA 2048-bit encryption | HTTP POST | Classic Votifier compatibility |
+| **V2** | HMAC-SHA256 signatures | HTTP POST or TCP socket | Modern NuVotifier compatibility |
+
+---
+
+### 🔑 V1 Protocol (RSA)
+
+The original Votifier protocol using RSA public-key encryption.
+
+#### Payload Format
 
 The vote data is a newline-delimited string:
 ```
@@ -345,11 +389,11 @@ address
 timestamp
 ```
 
-### 🔒 Encryption Flow
+#### Encryption Flow
 
 ```
 1. 🌐 Voting site retrieves server's public key
-2. 🔐 Voting site encrypts vote payload using RSA
+2. 🔐 Voting site encrypts vote payload using RSA/ECB/PKCS1Padding
 3. 📦 Voting site Base64-encodes the encrypted bytes
 4. 📤 Voting site POSTs the Base64 string to /vote endpoint
 5. 📥 Server decodes Base64 and decrypts with private key
@@ -357,11 +401,144 @@ timestamp
 7. 📡 Server fires VoteEvent for listening plugins
 ```
 
+---
+
+### 🔒 V2 Protocol (HMAC-SHA256)
+
+The NuVotifier V2 protocol uses HMAC-SHA256 signatures with per-service shared secret tokens instead of RSA encryption. This provides easier key management and works over both HTTP and dedicated socket connections.
+
+#### Key Differences from V1
+
+| Aspect | V1 | V2 |
+|--------|----|----|
+| **Authentication** | Single RSA key pair for all sites | Unique token per voting site |
+| **Setup** | Share public key with sites | Exchange shared secret tokens |
+| **Transport** | HTTP only | HTTP or TCP socket |
+| **Replay Protection** | None | Challenge-response (socket mode) |
+
+#### V2 Payload Format
+
+The V2 protocol uses JSON with a signed inner payload:
+
+```json
+{
+  "payload": "{\"serviceName\":\"Hyvote\",\"username\":\"PlayerName\",\"address\":\"192.168.1.1\",\"timestamp\":1704067200,\"challenge\":\"abc123...\"}",
+  "signature": "BASE64_HMAC_SHA256_SIGNATURE"
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `payload` | Stringified JSON containing the vote data |
+| `signature` | Base64-encoded HMAC-SHA256 of the payload string using the service's token |
+
+#### Inner Payload Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `serviceName` | string | ✅ | Identifier of the voting site (must match config) |
+| `username` | string | ✅ | In-game username of the player who voted |
+| `address` | string | ❌ | IP address of the voter |
+| `timestamp` | number | ❌ | Unix timestamp (seconds or milliseconds) |
+| `challenge` | string | Socket only | Challenge token from server greeting |
+
+#### V2 HTTP Mode
+
+Send V2 votes to the same HTTP endpoint as V1 votes. The server auto-detects the protocol based on payload format.
+
+```
+POST /Hyvote/HytaleVotifier/vote
+Content-Type: application/json
+
+{
+  "payload": "{\"serviceName\":\"...\",\"username\":\"...\",\"timestamp\":...}",
+  "signature": "..."
+}
+```
+
+#### V2 Socket Mode
+
+The socket server provides additional security through challenge-response authentication, preventing replay attacks.
+
+**Default Port:** `8192`
+
+**Protocol Flow:**
+```
+1. 📡 Client connects to socket server
+2. 📤 Server sends: "VOTIFIER 2 <challenge>\n"
+3. 📥 Client sends binary packet:
+   - Magic bytes: 0x733A (2 bytes, big-endian)
+   - Length: payload length (2 bytes, big-endian)
+   - Payload: JSON wrapper with challenge included
+4. ✅ Server verifies signature AND challenge
+5. 📤 Server responds with JSON result
+```
+
+**Server Response:**
+```json
+// Success
+{"status":"ok","cause":null,"errorMessage":null}
+
+// Error
+{"status":"error","cause":"error description","errorMessage":"error description"}
+```
+
+---
+
+### 🔧 V2 Configuration
+
+To use V2 protocol, configure tokens for each voting site in `config.json`:
+
+```json
+{
+  "voteSites": {
+    "tokens": {
+      "Hyvote": "your-secret-token-from-voting-site",
+      "MyVotingSite": "another-secret-token"
+    }
+  },
+  "socketServer": {
+    "enabled": true,
+    "port": 8192
+  },
+  "protocols": {
+    "v1Enabled": true,
+    "v2Enabled": true
+  }
+}
+```
+
+#### Vote Site Token Configuration
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `voteSites.tokens` | object | `{}` | Map of service names to their shared secret tokens |
+
+> 🔐 **Important:** The service name in the config must exactly match the `serviceName` field sent by the voting site. Tokens are case-sensitive.
+
+#### Socket Server Configuration
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `socketServer.enabled` | boolean | `true` | Enable the V2 TCP socket server |
+| `socketServer.port` | number | `8192` | Port for the socket server to listen on |
+
+> 💡 **Note:** The socket server is only started when V2 protocol is enabled in the `protocols` config and at least one vote site token is configured.
+
+#### Setting Up V2 with a Voting Site
+
+1. **Get your token** from the voting site's server configuration panel
+2. **Add the token** to your `config.json` under `voteSites.tokens` with the exact service name
+3. **Configure the voting site** with your server's socket address and port (for socket mode) or HTTP endpoint (for HTTP mode)
+4. **Restart your server** to apply the configuration
+
+---
+
 ### Vote Record Fields
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `serviceName` | String | Identifier of the voting site (e.g., "TopHytaleSites") |
+| `serviceName` | String | Identifier of the voting site (e.g., "Hyvote") |
 | `username` | String | In-game username of the player who voted |
 | `address` | String | IP address of the voter (as reported by voting site) |
 | `timestamp` | long | Epoch milliseconds when the vote was cast |
