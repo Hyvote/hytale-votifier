@@ -19,7 +19,7 @@ import java.util.logging.Level;
  * <pre>
  * {
  *   "status": "ok",
- *   "version": "1.0.0",
+ *   "version": "1.1.0",
  *   "serverType": "HytaleVotifier",
  *   "protocols": {"v1": true, "v2": true}
  * }
