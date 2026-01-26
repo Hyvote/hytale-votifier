@@ -7,9 +7,9 @@ import java.util.Map;
  * Configuration for Votifier V2 protocol service tokens.
  * Maps vote site service names to their shared secret tokens for HMAC-SHA256 verification.
  *
- * @param voteSites Map of service names to their authentication tokens
+ * @param tokens Map of service names to their authentication tokens
  */
-public record VoteSiteTokenConfig(Map<String, String> voteSites) {
+public record VoteSiteTokenConfig(Map<String, String> tokens) {
 
     /**
      * Returns a VoteSiteTokenConfig with default values (empty map).
@@ -24,7 +24,7 @@ public record VoteSiteTokenConfig(Map<String, String> voteSites) {
      * Compact constructor that ensures immutability of the services map.
      */
     public VoteSiteTokenConfig {
-        voteSites = voteSites != null ? Map.copyOf(voteSites) : Collections.emptyMap();
+        tokens = tokens != null ? Map.copyOf(tokens) : Collections.emptyMap();
     }
 
     /**
@@ -34,7 +34,7 @@ public record VoteSiteTokenConfig(Map<String, String> voteSites) {
      * @return the token, or null if not configured
      */
     public String getToken(String serviceName) {
-        return voteSites.get(serviceName);
+        return tokens.get(serviceName);
     }
 
     /**
@@ -43,6 +43,6 @@ public record VoteSiteTokenConfig(Map<String, String> voteSites) {
      * @return true if at least one vote site token is configured
      */
     public boolean isV2Enabled() {
-        return !voteSites.isEmpty();
+        return !tokens.isEmpty();
     }
 }
