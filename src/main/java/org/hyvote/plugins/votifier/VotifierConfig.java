@@ -15,8 +15,9 @@ import java.util.List;
  * @param internalHttpServer Configuration for the internal HTTP server (used when Nitrado:WebServer is unavailable).
  * @param protocols          Configuration for which vote protocols are enabled (V1 and V2).
  * @param voteCommand        Configuration for the /vote command that displays voting site links.
+ * @param voteReminder       Configuration for vote reminders sent to players who haven't voted.
  */
-public record VotifierConfig(boolean debug, String keyPath, VoteMessageConfig voteMessage, BroadcastConfig broadcast, List<RewardCommand> rewardCommands, VoteSiteTokenConfig voteSites, SocketConfig socketServer, HttpServerConfig internalHttpServer, ProtocolConfig protocols, VoteCommandConfig voteCommand) {
+public record VotifierConfig(boolean debug, String keyPath, VoteMessageConfig voteMessage, BroadcastConfig broadcast, List<RewardCommand> rewardCommands, VoteSiteTokenConfig voteSites, SocketConfig socketServer, HttpServerConfig internalHttpServer, ProtocolConfig protocols, VoteCommandConfig voteCommand, VoteReminderConfig voteReminder) {
 
     /**
      * Returns a VotifierConfig with default values.
@@ -27,6 +28,6 @@ public record VotifierConfig(boolean debug, String keyPath, VoteMessageConfig vo
         return new VotifierConfig(false, "keys", VoteMessageConfig.defaults(), BroadcastConfig.defaults(), List.of(
                 new RewardCommand(false, "give {username} Ingredient_Stick", 1.0),
                 new RewardCommand(false, "give {username} Ingredient_Bar_Iron", 0.1)
-        ), VoteSiteTokenConfig.defaults(), SocketConfig.defaults(), HttpServerConfig.defaults(), ProtocolConfig.defaults(), VoteCommandConfig.defaults());
+        ), VoteSiteTokenConfig.defaults(), SocketConfig.defaults(), HttpServerConfig.defaults(), ProtocolConfig.defaults(), VoteCommandConfig.defaults(), VoteReminderConfig.defaults());
     }
 }
