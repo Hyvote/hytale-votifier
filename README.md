@@ -21,6 +21,8 @@ A Votifier-style plugin for Hytale that receives vote notifications from voting 
 | 🔄 **Update Checker** | Automatic GitHub release checking with admin notifications |
 | 🧪 **Debug Tools** | `/testvote` command for development and troubleshooting |
 | 🗳️ **Vote Command** | `/vote` command displays clickable voting site links to players |
+| ⏰ **Vote Reminders** | Remind players to vote when they join if they haven't voted recently |
+| 💾 **Vote Storage** | Persistent SQLite storage tracks when players last voted |
 
 ---
 
@@ -65,6 +67,7 @@ Configuration is stored in `config.json` in the plugin's data directory. The fil
 ```
 mods/Hyvote_HytaleVotifier/
 ├── config.json       # Plugin configuration
+├── votes.db          # Vote tracking database (SQLite)
 └── keys/
     ├── public.key    # 📤 Share with voting sites
     └── private.key   # 🔒 Keep secure - never share!
@@ -127,6 +130,40 @@ mods/Hyvote_HytaleVotifier/
         "url": "https://hyvote.org"
       }
     ]
+  },
+  "voteReminder": {
+    "enabled": true,
+    "sendOnJoin": true,
+    "voteExpiryInterval": 24,
+    "delayInSeconds": 60,
+    "storage": {
+      "type": "sqlite",
+      "filePath": "votes.db",
+      "cleanupIntervalHours": 6
+    },
+    "message": {
+      "enabled": true,
+      "text": "<gray>You haven't voted today! You can <orange>'/vote'</orange> every day to receive free rewards!</gray>"
+    },
+    "title": {
+      "enabled": true,
+      "title": "You can /vote every day for free rewards!",
+      "subTitle": "You haven't voted today",
+      "durationSeconds": 3.0,
+      "fadeInSeconds": 0.5,
+      "fadeOutSeconds": 0.5
+    },
+    "notification": {
+      "enabled": true,
+      "titleMessage": "<orange>You haven't voted today</orange>",
+      "descriptionMessage": "<gray>You can <orange>/vote</orange> every day for free rewards!</gray>",
+      "iconItem": "Upgrade_Backpack_2"
+    },
+    "sound": {
+      "enabled": true,
+      "sound": "SFX_Avatar_Powers_Enable",
+      "soundCategory": "UI"
+    }
   }
 }
 ```
@@ -145,6 +182,7 @@ mods/Hyvote_HytaleVotifier/
 | `internalHttpServer` | object | — | Fallback HTTP server settings (see below) |
 | `protocols` | object | — | Protocol enable/disable settings (see below) |
 | `voteCommand` | object | — | `/vote` command settings (see below) |
+| `voteReminder` | object | — | Vote reminder settings (see below) |
 
 ### 🔔 Vote Message (Toast Notifications)
 
@@ -263,6 +301,112 @@ Display clickable voting site links to players with `/vote`.
       "url": "https://example.com/vote/my-server"
     }
   ]
+}
+```
+
+### ⏰ Vote Reminder Settings
+
+Remind players to vote when they join the server if they haven't voted recently. The reminder can include a chat message, title display, toast notification, and sound.
+
+#### Main Settings
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enabled` | boolean | `true` | Enable the vote reminder system |
+| `sendOnJoin` | boolean | `true` | Send reminders when players join the server |
+| `voteExpiryInterval` | number | `24` | Hours before a vote "expires" and reminders resume |
+| `delayInSeconds` | number | `60` | Delay (in seconds) after joining before sending the reminder |
+
+#### Storage Settings
+
+Vote timestamps are stored to track when players last voted. The storage is also used for periodic cleanup of expired records.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `storage.type` | string | `"sqlite"` | Storage backend: `"sqlite"` (persistent) or `"memory"` (clears on restart) |
+| `storage.filePath` | string | `"votes.db"` | Database file path relative to plugin data directory |
+| `storage.cleanupIntervalHours` | number | `6` | How often to run cleanup of expired vote records |
+
+> 💡 **Note:** The cleanup task removes vote records older than `voteExpiryInterval` to keep the database file size reasonable. Cleanup runs immediately on server startup and then at the configured interval.
+
+#### Message Settings
+
+Send a direct chat message to the player.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `message.enabled` | boolean | `true` | Enable the chat message reminder |
+| `message.text` | string | (see below) | Message text with TaleMessage formatting |
+
+**Default message:**
+```
+<gray>You haven't voted today! You can <orange>'/vote'</orange> every day to receive free rewards!</gray>
+```
+
+#### Title Settings
+
+Display a title at the center of the screen.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `title.enabled` | boolean | `true` | Enable the title display |
+| `title.title` | string | `"You can /vote every day for free rewards!"` | Main title text |
+| `title.subTitle` | string | `"You haven't voted today"` | Subtitle text below the main title |
+| `title.durationSeconds` | number | `3.0` | How long the title is displayed |
+| `title.fadeInSeconds` | number | `0.5` | Fade-in animation duration |
+| `title.fadeOutSeconds` | number | `0.5` | Fade-out animation duration |
+
+#### Notification Settings
+
+Display a toast notification popup.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `notification.enabled` | boolean | `true` | Enable the toast notification |
+| `notification.titleMessage` | string | `"<orange>You haven't voted today</orange>"` | Toast title with TaleMessage formatting |
+| `notification.descriptionMessage` | string | `"<gray>You can <orange>/vote</orange> every day for free rewards!</gray>"` | Toast description |
+| `notification.iconItem` | string | `"Upgrade_Backpack_2"` | Item ID to display as the toast icon |
+
+#### Sound Settings
+
+Play a sound with the reminder.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `sound.enabled` | boolean | `true` | Enable the reminder sound |
+| `sound.sound` | string | `"SFX_Avatar_Powers_Enable"` | Sound ID to play |
+| `sound.soundCategory` | string | `"UI"` | Sound category for volume control (`"UI"`, `"MUSIC"`, `"SFX"`) |
+
+**Example vote reminder configuration:**
+```json
+"voteReminder": {
+  "enabled": true,
+  "sendOnJoin": true,
+  "voteExpiryInterval": 24,
+  "delayInSeconds": 120,
+  "storage": {
+    "type": "sqlite",
+    "filePath": "votes.db",
+    "cleanupIntervalHours": 12
+  },
+  "message": {
+    "enabled": true,
+    "text": "<gold>Hey!</gold> <gray>Support us by voting with</gray> <green>/vote</green>"
+  },
+  "title": {
+    "enabled": false
+  },
+  "notification": {
+    "enabled": true,
+    "titleMessage": "<gold>Vote for Rewards!</gold>",
+    "descriptionMessage": "<gray>Type /vote to earn free items!</gray>",
+    "iconItem": "Ore_Gold"
+  },
+  "sound": {
+    "enabled": true,
+    "sound": "SFX_UI_Quest_Complete",
+    "soundCategory": "UI"
+  }
 }
 ```
 

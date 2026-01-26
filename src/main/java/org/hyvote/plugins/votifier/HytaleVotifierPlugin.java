@@ -11,7 +11,12 @@ import org.hyvote.plugins.votifier.command.VoteCommand;
 import org.hyvote.plugins.votifier.crypto.RSAKeyManager;
 import org.hyvote.plugins.votifier.http.FallbackHttpServer;
 import org.hyvote.plugins.votifier.http.NitradoWebServerBridge;
+import org.hyvote.plugins.votifier.reminder.VoteReminderService;
+import org.hyvote.plugins.votifier.reminder.VoteTracker;
 import org.hyvote.plugins.votifier.socket.VotifierSocketServer;
+import org.hyvote.plugins.votifier.storage.StorageException;
+import org.hyvote.plugins.votifier.storage.VoteStorage;
+import org.hyvote.plugins.votifier.storage.VoteStorageFactory;
 import org.hyvote.plugins.votifier.util.UpdateChecker;
 import org.hyvote.plugins.votifier.util.UpdateNotificationUtil;
 import net.nitrado.hytale.plugins.webserver.WebServerPlugin;
@@ -42,6 +47,8 @@ public class HytaleVotifierPlugin extends JavaPlugin {
     private WebServerPlugin webServerPlugin;
     private FallbackHttpServer fallbackHttpServer;
     private VotifierSocketServer socketServer;
+    private VoteStorage voteStorage;
+    private VoteReminderService voteReminderService;
     private volatile boolean updateAvailable = false;
     private volatile String latestVersion = null;
 
@@ -77,6 +84,7 @@ public class HytaleVotifierPlugin extends JavaPlugin {
         initializeKeys();
         initializeWebServer();
         initializeSocketServer();
+        initializeVoteReminderService();
         registerCommands();
         registerEventListeners();
         checkForUpdates();
@@ -93,6 +101,12 @@ public class HytaleVotifierPlugin extends JavaPlugin {
         }
         if (webServerPlugin != null) {
             NitradoWebServerBridge.unregisterServlets(this, webServerPlugin);
+        }
+        if (voteReminderService != null) {
+            voteReminderService.shutdown();
+        }
+        if (voteStorage != null) {
+            voteStorage.shutdown();
         }
         getLogger().at(Level.INFO).log("HytaleVotifier disabled");
     }
@@ -148,6 +162,9 @@ public class HytaleVotifierPlugin extends JavaPlugin {
                 VoteCommandConfig mergedVoteCommand = loaded.voteCommand() != null
                         ? loaded.voteCommand().merge(defaults.voteCommand())
                         : defaults.voteCommand();
+                VoteReminderConfig mergedVoteReminder = loaded.voteReminder() != null
+                        ? loaded.voteReminder().merge(defaults.voteReminder())
+                        : defaults.voteReminder();
                 this.config = new VotifierConfig(
                         loaded.debug(),
                         loaded.keyPath() != null ? loaded.keyPath() : defaults.keyPath(),
@@ -158,7 +175,8 @@ public class HytaleVotifierPlugin extends JavaPlugin {
                         mergedSocket,
                         mergedHttpServer,
                         mergedProtocols,
-                        mergedVoteCommand
+                        mergedVoteCommand,
+                        mergedVoteReminder
                 );
 
                 // Write merged config back to add any new config sections to legacy configs
@@ -265,6 +283,32 @@ public class HytaleVotifierPlugin extends JavaPlugin {
         }
     }
 
+    private void initializeVoteReminderService() {
+        VoteReminderConfig reminderConfig = config.voteReminder();
+        if (reminderConfig == null || !reminderConfig.enabled()) {
+            getLogger().at(Level.INFO).log("Vote reminder service disabled");
+            return;
+        }
+
+        // Initialize vote storage backend
+        try {
+            voteStorage = VoteStorageFactory.create(
+                    reminderConfig.storage(),
+                    getDataDirectory(),
+                    getLogger()
+            );
+            getLogger().at(Level.INFO).log("Vote storage initialized: type=%s", voteStorage.getType());
+        } catch (StorageException e) {
+            getLogger().at(Level.SEVERE).log("Failed to initialize vote storage: %s", e.getMessage());
+            return;
+        }
+
+        VoteTracker voteTracker = new VoteTracker(voteStorage);
+        voteReminderService = new VoteReminderService(this, voteTracker);
+        getLogger().at(Level.INFO).log("Vote reminder service enabled - sendOnJoin=%s, delayInSeconds=%d, voteExpiryInterval=%d, storage=%s",
+                reminderConfig.sendOnJoin(), reminderConfig.delayInSeconds(), reminderConfig.voteExpiryInterval(), voteStorage.getType());
+    }
+
     private void registerCommands() {
         TestVoteCommand testVoteCommand = new TestVoteCommand(this);
         getCommandRegistry().registerCommand(testVoteCommand);
@@ -291,23 +335,24 @@ public class HytaleVotifierPlugin extends JavaPlugin {
     }
 
     private void onPlayerReady(PlayerReadyEvent event) {
-        if (!updateAvailable) {
-            return;
-        }
-
         Player player = event.getPlayer();
-        // Check if the player has admin permission for update notifications
-        if (!player.hasPermission("votifier.admin") && !player.hasPermission("votifier.admin.update_notifications")) {
-            return;
+
+        // Handle vote reminders for all players
+        if (voteReminderService != null) {
+            voteReminderService.onPlayerJoin(player);
         }
 
-        // Send update notification to OP players
-        UpdateNotificationUtil.sendUpdateNotification(this, player);
+        // Handle update notifications for admin players
+        if (updateAvailable) {
+            if (player.hasPermission("votifier.admin") || player.hasPermission("votifier.admin.update_notifications")) {
+                UpdateNotificationUtil.sendUpdateNotification(this, player);
 
-        if (config.debug()) {
-            getLogger().at(Level.INFO).log(
-                    "Notified OP player %s about available update",
-                    player.getDisplayName());
+                if (config.debug()) {
+                    getLogger().at(Level.INFO).log(
+                            "Notified OP player %s about available update",
+                            player.getDisplayName());
+                }
+            }
         }
     }
 
@@ -336,5 +381,14 @@ public class HytaleVotifierPlugin extends JavaPlugin {
      */
     public String getLatestVersion() {
         return latestVersion;
+    }
+
+    /**
+     * Returns the vote reminder service, or null if disabled.
+     *
+     * @return the vote reminder service, or null
+     */
+    public VoteReminderService getVoteReminderService() {
+        return voteReminderService;
     }
 }

@@ -60,6 +60,14 @@
             <version>1.0.2</version>
             <scope>compile</scope>
         </dependency>
+
+        <!-- SQLite JDBC - for persistent vote storage -->
+        <dependency>
+            <groupId>org.xerial</groupId>
+            <artifactId>sqlite-jdbc</artifactId>
+            <version>3.47.2.0</version>
+            <scope>compile</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -85,6 +93,7 @@
                             <artifactSet>
                                 <includes>
                                     <include>com.github.InsiderAnh:TaleMessage</include>
+                                    <include>org.xerial:sqlite-jdbc</include>
                                 </includes>
                             </artifactSet>
                             <relocations>
@@ -92,6 +101,8 @@
                                     <pattern>io.github.insideranh.talemessage</pattern>
                                     <shadedPattern>org.hyvote.plugins.votifier.shaded.talemessage</shadedPattern>
                                 </relocation>
+                                <!-- Note: SQLite JDBC cannot be relocated because it uses native code (JNI)
+                                     that has hardcoded references to org.sqlite.* class paths -->
                             </relocations>
                         </configuration>
                     </execution>
