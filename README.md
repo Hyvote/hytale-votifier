@@ -27,7 +27,7 @@ A Votifier-style plugin for Hytale that receives vote notifications from voting 
 
 - ☕ **Java 25** or higher
 - 🎮 **Hytale Server** with plugin support
-- 🔌 **Nitrado:WebServer plugin** — Required for HTTP server
+- 🔌 **Nitrado:WebServer plugin** — Optional; if unavailable, a built-in fallback HTTP server is used
 
 ---
 
@@ -44,7 +44,7 @@ A Votifier-style plugin for Hytale that receives vote notifications from voting 
    └── HytaleVotifier-1.0.0.jar
    ```
 
-3. **Ensure Nitrado:WebServer is installed** — HytaleVotifier depends on this plugin for HTTP handling
+3. **(Optional) Install Nitrado:WebServer** — If available, HytaleVotifier uses it for HTTP handling. Otherwise, a built-in fallback HTTP server is automatically started on port 8080
 
 4. **Start the server** — RSA keys will be automatically generated on first run 🔑
 
@@ -97,6 +97,14 @@ mods/Hyvote_HytaleVotifier/
       "chance": 0.1
     }
   ],
+  "internalHttpServer": {
+    "enabled": true,
+    "port": 8080
+  },
+  "protocols": {
+    "v1Enabled": true,
+    "v2Enabled": true
+  },
   "voteCommand": {
     "enabled": false,
     "header": "<red>================<orange> Vote Now </orange>================</red>",
@@ -121,6 +129,8 @@ mods/Hyvote_HytaleVotifier/
 | `voteMessage` | object | — | Toast notification settings (see below) |
 | `broadcast` | object | — | Server-wide broadcast settings (see below) |
 | `rewardCommands` | array | — | Commands to execute on vote (see below) |
+| `internalHttpServer` | object | — | Fallback HTTP server settings (see below) |
+| `protocols` | object | — | Protocol enable/disable settings (see below) |
 | `voteCommand` | object | — | `/vote` command settings (see below) |
 
 ### 🔔 Vote Message (Toast Notifications)
@@ -177,6 +187,32 @@ Execute server commands when votes are received. Each command in the array can h
 ☝️ In this example, every voter receives a stick, has a 25% chance for a gold bar, and a 5% chance for a rare longsword! ⚔️
 
 > ⚠️ **Security Note:** Usernames and service names are validated before command execution to prevent command injection. Only alphanumeric characters and underscores are allowed in usernames.
+
+### 🌐 Fallback HTTP Server
+
+When the Nitrado:WebServer plugin is not available, HytaleVotifier automatically starts its own HTTP server using Java's built-in HttpServer.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enabled` | boolean | `true` | Enable the fallback HTTP server when Nitrado:WebServer is unavailable |
+| `port` | number | `8080` | The port to listen on for HTTP requests |
+
+> 💡 **Note:** The fallback HTTP server provides the same `/Hyvote/HytaleVotifier/vote` and `/Hyvote/HytaleVotifier/status` endpoints as when using Nitrado:WebServer. If Nitrado:WebServer is installed, the fallback server is not started.
+
+> ⚠️ **Important:** The HTTP server (both Nitrado:WebServer and fallback) is only started when V1 protocol is enabled. If you only use V2 protocol via the socket server, you can disable V1 to skip HTTP server initialization entirely.
+
+### 🔧 Protocol Settings
+
+Control which vote protocols are enabled. Both protocols are enabled by default.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `v1Enabled` | boolean | `true` | Enable V1 protocol (RSA-encrypted votes over HTTP) |
+| `v2Enabled` | boolean | `true` | Enable V2 protocol (HMAC-SHA256 signed votes over HTTP or socket) |
+
+> 💡 **Note:** V1 protocol requires an HTTP server. If V1 is disabled, the HTTP server will not be started (even if available), and votes can only be received via the V2 socket server.
+
+> 💡 **Note:** V2 protocol can work over both HTTP and socket. If you disable V1 but keep V2 enabled, configure the socket server to receive V2 votes.
 
 ### 🗳️ Vote Command Settings
 

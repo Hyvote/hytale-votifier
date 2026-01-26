@@ -38,21 +38,19 @@ public class StatusServlet extends HttpServlet {
         resp.setContentType("application/json");
 
         try {
-            boolean v2Enabled = plugin.getConfig().voteSites() != null
+            boolean v1Enabled = plugin.getConfig().protocols() != null
+                    && Boolean.TRUE.equals(plugin.getConfig().protocols().v1Enabled());
+            boolean v2Enabled = plugin.getConfig().protocols() != null
+                    && Boolean.TRUE.equals(plugin.getConfig().protocols().v2Enabled())
+                    && plugin.getConfig().voteSites() != null
                     && plugin.getConfig().voteSites().isV2Enabled();
 
-            String json = String.format(
-                    "{\"status\": \"ok\", \"version\": \"%s\", \"serverType\": \"HytaleVotifier\", " +
-                    "\"protocols\": {\"v1\": true, \"v2\": %b}}",
-                    plugin.getPluginVersion(),
-                    v2Enabled
-            );
             resp.setStatus(HttpServletResponse.SC_OK);
-            resp.getWriter().println(json);
+            resp.getWriter().println(VoteProcessor.statusJson(plugin.getPluginVersion(), v1Enabled, v2Enabled));
         } catch (Exception e) {
             plugin.getLogger().at(Level.SEVERE).withCause(e).log("Failed to process status request");
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            resp.getWriter().println("{\"status\": \"error\", \"message\": \"Internal server error\"}");
+            resp.getWriter().println(VoteProcessor.errorJson("Internal server error"));
         }
     }
 }

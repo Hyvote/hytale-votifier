@@ -1,27 +1,13 @@
 package org.hyvote.plugins.votifier.http;
 
-import com.hypixel.hytale.server.core.HytaleServer;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.hyvote.plugins.votifier.HytaleVotifierPlugin;
-import org.hyvote.plugins.votifier.crypto.CryptoUtil;
-import org.hyvote.plugins.votifier.crypto.VoteDecryptionException;
-import org.hyvote.plugins.votifier.event.VoteEvent;
-import org.hyvote.plugins.votifier.util.BroadcastUtil;
-import org.hyvote.plugins.votifier.util.RewardCommandUtil;
-import org.hyvote.plugins.votifier.util.VoteNotificationUtil;
-import org.hyvote.plugins.votifier.vote.ProtocolDetector;
-import org.hyvote.plugins.votifier.vote.ProtocolDetector.Protocol;
-import org.hyvote.plugins.votifier.vote.V2SignatureException;
-import org.hyvote.plugins.votifier.vote.V2VoteParser;
-import org.hyvote.plugins.votifier.vote.Vote;
-import org.hyvote.plugins.votifier.vote.VoteParseException;
-import org.hyvote.plugins.votifier.vote.VoteParser;
+import org.hyvote.plugins.votifier.http.VoteProcessor.VoteResult;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.util.Base64;
+import java.nio.charset.StandardCharsets;
 import java.util.logging.Level;
 
 /**
@@ -40,10 +26,17 @@ import java.util.logging.Level;
  *   <li>200 OK - Vote received and processed successfully</li>
  *   <li>400 Bad Request - Empty payload, invalid format, or parse error</li>
  *   <li>401 Unauthorized - V2 signature verification failed</li>
+ *   <li>413 Payload Too Large - Request body exceeds maximum size</li>
  *   <li>500 Internal Server Error - Unexpected server error</li>
  * </ul>
  */
 public class VoteServlet extends HttpServlet {
+
+    /**
+     * Maximum allowed request body size (32KB).
+     * Vote payloads are typically small (a few hundred bytes), so this is generous.
+     */
+    private static final int MAX_BODY_SIZE = 32 * 1024;
 
     private final HytaleVotifierPlugin plugin;
 
@@ -56,123 +49,76 @@ public class VoteServlet extends HttpServlet {
         resp.setContentType("application/json");
 
         // Read request body
-        String payload = readRequestBody(req);
-
-        // Validate payload is not empty
-        if (payload.isEmpty()) {
-            sendError(resp, HttpServletResponse.SC_BAD_REQUEST, "Empty payload");
-            plugin.getLogger().at(Level.WARNING).log("Rejected vote request: empty payload");
-            return;
-        }
-
-        // Detect protocol
-        Protocol protocol = ProtocolDetector.detect(payload);
-
-        if (protocol == Protocol.UNKNOWN) {
-            sendError(resp, HttpServletResponse.SC_BAD_REQUEST, "Unable to detect vote protocol");
-            plugin.getLogger().at(Level.WARNING).log("Rejected vote request: unknown protocol");
-            return;
-        }
-
-        // Process vote based on detected protocol
-        Vote vote;
+        String payload;
         try {
-            vote = switch (protocol) {
-                case V2_JSON -> processV2Vote(payload);
-                case V1_RSA -> processV1Vote(payload);
-                case UNKNOWN -> throw new VoteParseException("Unable to detect vote protocol");
-            };
-        } catch (VoteParseException e) {
-            sendError(resp, HttpServletResponse.SC_BAD_REQUEST, "Invalid vote format");
-            plugin.getLogger().at(Level.WARNING).log("Rejected %s vote request: %s", protocol, e.getMessage());
-            return;
-        } catch (V2SignatureException e) {
-            sendError(resp, HttpServletResponse.SC_UNAUTHORIZED, "Signature verification failed");
-            plugin.getLogger().at(Level.WARNING).log("Rejected V2 vote: %s", e.getMessage());
-            return;
-        } catch (VoteDecryptionException e) {
-            sendError(resp, HttpServletResponse.SC_BAD_REQUEST, "Invalid vote payload");
-            plugin.getLogger().at(Level.WARNING).log("Rejected V1 vote: decryption failed - %s", e.getMessage());
-            return;
-        } catch (Exception e) {
-            sendError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Internal server error");
-            plugin.getLogger().at(Level.SEVERE).withCause(e).log("Failed to process vote request");
-            return;
+            payload = readRequestBody(req);
+        } catch (IOException e) {
+            if (e.getMessage() != null && e.getMessage().contains("exceeds maximum size")) {
+                sendError(resp, 413, "Request body too large");
+                plugin.getLogger().at(Level.WARNING).log("Rejected vote request: payload too large");
+                return;
+            }
+            throw e;
         }
 
-        // Process the vote (fire event, notifications, rewards)
-        processVote(vote);
+        // Process the vote using shared logic
+        VoteResult result = VoteProcessor.processPayload(plugin, payload);
 
-        if (plugin.getConfig().debug()) {
-            plugin.getLogger().at(Level.INFO).log("Received %s vote from %s: service=%s, username=%s",
-                    protocol, req.getRemoteAddr(), vote.serviceName(), vote.username());
+        // Handle result
+        switch (result) {
+            case VoteResult.Success success -> {
+                VoteProcessor.dispatchVote(plugin, success.vote());
+                if (plugin.getConfig().debug()) {
+                    plugin.getLogger().at(Level.INFO).log("Received %s vote from %s: service=%s, username=%s",
+                            success.protocol(), req.getRemoteAddr(), success.vote().serviceName(), success.vote().username());
+                }
+                resp.setStatus(HttpServletResponse.SC_OK);
+                resp.getWriter().println(VoteProcessor.successJson("Vote processed for " + success.vote().username()));
+            }
+            case VoteResult.EmptyPayload() -> {
+                sendError(resp, HttpServletResponse.SC_BAD_REQUEST, "Empty payload");
+                plugin.getLogger().at(Level.WARNING).log("Rejected vote request: empty payload");
+            }
+            case VoteResult.UnknownProtocol() -> {
+                sendError(resp, HttpServletResponse.SC_BAD_REQUEST, "Unable to detect vote protocol");
+                plugin.getLogger().at(Level.WARNING).log("Rejected vote request: unknown protocol");
+            }
+            case VoteResult.ParseError parseError -> {
+                sendError(resp, HttpServletResponse.SC_BAD_REQUEST, "Invalid vote format");
+                plugin.getLogger().at(Level.WARNING).log("Rejected %s vote request: %s", parseError.protocol(), parseError.message());
+            }
+            case VoteResult.SignatureError signatureError -> {
+                sendError(resp, HttpServletResponse.SC_UNAUTHORIZED, "Signature verification failed");
+                plugin.getLogger().at(Level.WARNING).log("Rejected V2 vote: %s", signatureError.message());
+            }
+            case VoteResult.DecryptionError decryptionError -> {
+                sendError(resp, HttpServletResponse.SC_BAD_REQUEST, "Invalid vote payload");
+                plugin.getLogger().at(Level.WARNING).log("Rejected V1 vote: decryption failed - %s", decryptionError.message());
+            }
+            case VoteResult.InternalError internalError -> {
+                sendError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Internal server error");
+                plugin.getLogger().at(Level.SEVERE).withCause(internalError.cause()).log("Failed to process vote request");
+            }
         }
-
-        resp.setStatus(HttpServletResponse.SC_OK);
-        resp.getWriter().println(String.format(
-                "{\"status\": \"ok\", \"message\": \"Vote processed for %s\"}", vote.username()));
     }
 
     /**
      * Reads the request body as a trimmed string.
+     *
+     * @throws IOException if reading fails or body exceeds {@link #MAX_BODY_SIZE}
      */
     private String readRequestBody(HttpServletRequest req) throws IOException {
-        StringBuilder body = new StringBuilder();
-        try (BufferedReader reader = req.getReader()) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                body.append(line);
+        try (var inputStream = req.getInputStream()) {
+            byte[] bytes = inputStream.readNBytes(MAX_BODY_SIZE + 1);
+            if (bytes.length > MAX_BODY_SIZE) {
+                throw new IOException("Request body exceeds maximum size of " + MAX_BODY_SIZE + " bytes");
             }
+            return new String(bytes, StandardCharsets.UTF_8).trim();
         }
-        return body.toString().trim();
-    }
-
-    /**
-     * Processes a V1 (RSA-encrypted) vote payload.
-     */
-    private Vote processV1Vote(String payload) throws VoteDecryptionException, VoteParseException {
-        // Decode Base64 payload
-        byte[] encryptedBytes;
-        try {
-            encryptedBytes = Base64.getDecoder().decode(payload);
-        } catch (IllegalArgumentException e) {
-            throw new VoteParseException("Invalid Base64 encoding", e);
-        }
-
-        // Decrypt with RSA private key
-        byte[] decryptedBytes = CryptoUtil.decrypt(encryptedBytes, plugin.getKeyManager().getPrivateKey());
-
-        // Parse vote data
-        return VoteParser.parse(decryptedBytes);
-    }
-
-    /**
-     * Processes a V2 (HMAC-SHA256 signed) vote payload.
-     */
-    private Vote processV2Vote(String payload) throws VoteParseException, V2SignatureException {
-        return V2VoteParser.parse(payload, plugin.getConfig().voteSites());
-    }
-
-    /**
-     * Fires vote event and processes rewards/notifications.
-     */
-    private void processVote(Vote vote) {
-        // Fire vote event for other plugins to handle rewards
-        VoteEvent voteEvent = new VoteEvent(plugin, vote);
-        HytaleServer.get().getEventBus().dispatchFor(VoteEvent.class, plugin.getClass()).dispatch(voteEvent);
-
-        // Display toast notification to the player if enabled
-        VoteNotificationUtil.displayVoteToast(plugin, vote);
-
-        // Broadcast vote announcement to all online players if enabled
-        BroadcastUtil.broadcastVote(plugin, vote);
-
-        // Execute reward commands
-        RewardCommandUtil.executeRewardCommands(plugin, vote);
     }
 
     private void sendError(HttpServletResponse resp, int statusCode, String message) throws IOException {
         resp.setStatus(statusCode);
-        resp.getWriter().println(String.format("{\"status\": \"error\", \"message\": \"%s\"}", message));
+        resp.getWriter().println(VoteProcessor.errorJson(message));
     }
 }
