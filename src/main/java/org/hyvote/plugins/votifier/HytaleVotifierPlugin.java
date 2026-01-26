@@ -7,6 +7,7 @@ import com.hypixel.hytale.server.core.plugin.JavaPlugin;
 import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
 import com.hypixel.hytale.server.core.plugin.PluginManager;
 import org.hyvote.plugins.votifier.command.TestVoteCommand;
+import org.hyvote.plugins.votifier.command.VoteCommand;
 import org.hyvote.plugins.votifier.crypto.RSAKeyManager;
 import org.hyvote.plugins.votifier.http.StatusServlet;
 import org.hyvote.plugins.votifier.http.VoteServlet;
@@ -135,6 +136,9 @@ public class HytaleVotifierPlugin extends JavaPlugin {
                 SocketConfig mergedSocket = loaded.socket() != null
                         ? loaded.socket().merge(defaults.socket())
                         : defaults.socket();
+                VoteCommandConfig mergedVoteCommand = loaded.voteCommand() != null
+                        ? loaded.voteCommand().merge(defaults.voteCommand())
+                        : defaults.voteCommand();
                 this.config = new VotifierConfig(
                         loaded.debug(),
                         loaded.keyPath() != null ? loaded.keyPath() : defaults.keyPath(),
@@ -142,7 +146,8 @@ public class HytaleVotifierPlugin extends JavaPlugin {
                         mergedBroadcast,
                         loaded.rewardCommands() != null ? loaded.rewardCommands() : defaults.rewardCommands(),
                         mergedVoteSites,
-                        mergedSocket
+                        mergedSocket,
+                        mergedVoteCommand
                 );
 
                 // Write merged config back to add any new config sections to legacy configs
@@ -231,6 +236,10 @@ public class HytaleVotifierPlugin extends JavaPlugin {
         TestVoteCommand testVoteCommand = new TestVoteCommand(this);
         getCommandRegistry().registerCommand(testVoteCommand);
         getLogger().at(Level.INFO).log("Registered /testvote command");
+
+        VoteCommand voteCommand = new VoteCommand(this);
+        getCommandRegistry().registerCommand(voteCommand);
+        getLogger().at(Level.INFO).log("Registered /vote command");
     }
 
     private void registerEventListeners() {

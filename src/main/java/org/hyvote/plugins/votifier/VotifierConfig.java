@@ -12,8 +12,9 @@ import java.util.List;
  * @param rewardCommands Array of commands to execute when a vote is received. Each command has a chance probability.
  * @param voteSites      Configuration for V2 protocol vote site tokens (service name to token mapping).
  * @param socket         Configuration for V2 socket server (port and enabled state).
+ * @param voteCommand    Configuration for the /vote command that displays voting site links.
  */
-public record VotifierConfig(boolean debug, String keyPath, VoteMessageConfig voteMessage, BroadcastConfig broadcast, List<RewardCommand> rewardCommands, VoteSiteTokenConfig voteSites, SocketConfig socket) {
+public record VotifierConfig(boolean debug, String keyPath, VoteMessageConfig voteMessage, BroadcastConfig broadcast, List<RewardCommand> rewardCommands, VoteSiteTokenConfig voteSites, SocketConfig socket, VoteCommandConfig voteCommand) {
 
     /**
      * Returns a VotifierConfig with default values.
@@ -24,6 +25,6 @@ public record VotifierConfig(boolean debug, String keyPath, VoteMessageConfig vo
         return new VotifierConfig(false, "keys", VoteMessageConfig.defaults(), BroadcastConfig.defaults(), List.of(
                 new RewardCommand(false, "give {username} Ingredient_Stick", 1.0),
                 new RewardCommand(false, "give {username} Ingredient_Bar_Iron", 0.1)
-        ), VoteSiteTokenConfig.defaults(), SocketConfig.defaults());
+        ), VoteSiteTokenConfig.defaults(), SocketConfig.defaults(), VoteCommandConfig.defaults());
     }
 }
