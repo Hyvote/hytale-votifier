@@ -101,7 +101,7 @@ mods/Hyvote_HytaleVotifier/
     "enabled": false,
     "header": "<red>================<orange> Vote Now </orange>================</red>",
     "siteTemplate": "<orange><click:{link}>~{name}~</click></orange>",
-    "footer": "<red>=============<orange> Get Your Reward </orange>=============</red>",
+    "footer": "<red>==============<orange> Earn Rewards </orange>==============</red>",
     "sites": [
       {
         "name": "Hyvote.org",
@@ -187,7 +187,7 @@ Display clickable voting site links to players with `/vote`.
 | `enabled` | boolean | `false` | Enable the `/vote` command |
 | `header` | string | `"<red>================<orange> Vote Now </orange>================</red>"` | Header message displayed before sites |
 | `siteTemplate` | string | `"<orange><click:{link}>~{name}~</click></orange>"` | Template for each site with `{name}` and `{link}` placeholders |
-| `footer` | string | `"<red>=============<orange> Get Your Reward </orange>=============</red>"` | Footer message displayed after sites |
+| `footer` | string | `"<red>==============<orange> Earn Rewards </orange>==============</red>"` | Footer message displayed after sites |
 | `sites` | array | — | List of voting sites (displayed in order) |
 
 **Site object properties:**

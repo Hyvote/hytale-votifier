@@ -35,7 +35,7 @@ public record VoteCommandConfig(
                 false,
                 "<red>================<orange> Vote Now </orange>================</red>",
                 "<orange><click:{link}>~{name}~</click></orange>",
-                "<red>=============<orange> Get Your Reward </orange>=============</red>",
+                "<red>==============<orange> Earn Rewards </orange>==============</red>",
                 List.of(new VoteSite("Hyvote.org", "https://hyvote.org/blog/posts/how-to-add-your-server-to-hyvote-with-hyquery"))
         );
     }
