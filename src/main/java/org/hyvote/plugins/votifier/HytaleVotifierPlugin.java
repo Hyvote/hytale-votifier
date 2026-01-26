@@ -8,8 +8,8 @@ import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
 import com.hypixel.hytale.server.core.plugin.PluginManager;
 import org.hyvote.plugins.votifier.command.TestVoteCommand;
 import org.hyvote.plugins.votifier.crypto.RSAKeyManager;
-import org.hyvote.plugins.votifier.http.StatusServlet;
-import org.hyvote.plugins.votifier.http.VoteServlet;
+import org.hyvote.plugins.votifier.http.FallbackHttpServer;
+import org.hyvote.plugins.votifier.http.NitradoWebServerBridge;
 import org.hyvote.plugins.votifier.socket.VotifierSocketServer;
 import org.hyvote.plugins.votifier.util.UpdateChecker;
 import org.hyvote.plugins.votifier.util.UpdateNotificationUtil;
@@ -39,6 +39,7 @@ public class HytaleVotifierPlugin extends JavaPlugin {
     private VotifierConfig config;
     private RSAKeyManager keyManager;
     private WebServerPlugin webServerPlugin;
+    private FallbackHttpServer fallbackHttpServer;
     private VotifierSocketServer socketServer;
     private volatile boolean updateAvailable = false;
     private volatile String latestVersion = null;
@@ -86,9 +87,11 @@ public class HytaleVotifierPlugin extends JavaPlugin {
         if (socketServer != null && socketServer.isRunning()) {
             socketServer.stop();
         }
+        if (fallbackHttpServer != null && fallbackHttpServer.isRunning()) {
+            fallbackHttpServer.stop();
+        }
         if (webServerPlugin != null) {
-            webServerPlugin.removeServlets(this);
-            getLogger().at(Level.INFO).log("Unregistered HTTP endpoints");
+            NitradoWebServerBridge.unregisterServlets(this, webServerPlugin);
         }
         getLogger().at(Level.INFO).log("HytaleVotifier disabled");
     }
@@ -132,9 +135,15 @@ public class HytaleVotifierPlugin extends JavaPlugin {
                 VoteSiteTokenConfig mergedVoteSites = loaded.voteSites() != null
                         ? loaded.voteSites()
                         : defaults.voteSites();
-                SocketConfig mergedSocket = loaded.socket() != null
-                        ? loaded.socket().merge(defaults.socket())
-                        : defaults.socket();
+                SocketConfig mergedSocket = loaded.socketServer() != null
+                        ? loaded.socketServer().merge(defaults.socketServer())
+                        : defaults.socketServer();
+                HttpServerConfig mergedHttpServer = loaded.internalHttpServer() != null
+                        ? loaded.internalHttpServer().merge(defaults.internalHttpServer())
+                        : defaults.internalHttpServer();
+                ProtocolConfig mergedProtocols = loaded.protocols() != null
+                        ? loaded.protocols().merge(defaults.protocols())
+                        : defaults.protocols();
                 this.config = new VotifierConfig(
                         loaded.debug(),
                         loaded.keyPath() != null ? loaded.keyPath() : defaults.keyPath(),
@@ -142,7 +151,9 @@ public class HytaleVotifierPlugin extends JavaPlugin {
                         mergedBroadcast,
                         loaded.rewardCommands() != null ? loaded.rewardCommands() : defaults.rewardCommands(),
                         mergedVoteSites,
-                        mergedSocket
+                        mergedSocket,
+                        mergedHttpServer,
+                        mergedProtocols
                 );
 
                 // Write merged config back to add any new config sections to legacy configs
@@ -185,30 +196,52 @@ public class HytaleVotifierPlugin extends JavaPlugin {
     }
 
     private void initializeWebServer() {
-        var plugin = PluginManager.get().getPlugin(new PluginIdentifier("Nitrado", "WebServer"));
-        if (!(plugin instanceof WebServerPlugin webServer)) {
-            getLogger().at(Level.SEVERE).log("WebServer plugin not found - HTTP endpoints disabled");
+        // Check if V1 protocol is enabled - HTTP server is only needed for V1
+        ProtocolConfig protocols = config.protocols();
+        if (protocols == null || !Boolean.TRUE.equals(protocols.v1Enabled())) {
+            getLogger().at(Level.INFO).log("V1 protocol disabled - HTTP server not started");
             return;
         }
-        this.webServerPlugin = webServer;
-        registerServlets();
+
+        var plugin = PluginManager.get().getPlugin(new PluginIdentifier("Nitrado", "WebServer"));
+        if (plugin instanceof WebServerPlugin webServer) {
+            this.webServerPlugin = webServer;
+            registerServlets();
+            return;
+        }
+
+        // Nitrado:WebServer not available, try fallback HTTP server
+        getLogger().at(Level.WARNING).log("Nitrado:WebServer plugin not found - attempting fallback HTTP server");
+        initializeFallbackHttpServer();
+    }
+
+    private void initializeFallbackHttpServer() {
+        HttpServerConfig httpConfig = config.internalHttpServer();
+        if (httpConfig == null || !httpConfig.enabled()) {
+            getLogger().at(Level.SEVERE).log("Fallback HTTP server disabled - HTTP endpoints will not be available");
+            return;
+        }
+
+        try {
+            FallbackHttpServer server = new FallbackHttpServer(this, httpConfig.port());
+            server.start();
+            fallbackHttpServer = server;
+        } catch (IOException e) {
+            getLogger().at(Level.SEVERE).log("Failed to start fallback HTTP server on port %d: %s",
+                    httpConfig.port(), e.getMessage());
+        }
     }
 
     private void registerServlets() {
         if (webServerPlugin == null) {
             return;
         }
-        try {
-            webServerPlugin.addServlet(this, "/vote", new VoteServlet(this));
-            webServerPlugin.addServlet(this, "/status", new StatusServlet(this));
-            getLogger().at(Level.INFO).log("Registered HTTP endpoints at /Hyvote/HytaleVotifier/vote and /status");
-        } catch (Exception e) {
-            getLogger().at(Level.SEVERE).log("Failed to register HTTP endpoints: %s", e.getMessage());
-        }
+        // Use bridge class to defer loading of servlet classes until we know Nitrado is available
+        NitradoWebServerBridge.registerServlets(this, webServerPlugin);
     }
 
     private void initializeSocketServer() {
-        SocketConfig socketConfig = config.socket();
+        SocketConfig socketConfig = config.socketServer();
         if (socketConfig == null || !socketConfig.enabled()) {
             getLogger().at(Level.INFO).log("V2 socket server disabled");
             return;

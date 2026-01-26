@@ -3,7 +3,7 @@ package org.hyvote.plugins.votifier;
 /**
  * Configuration for the Votifier V2 socket server.
  *
- * @param enabled Whether the socket server is enabled (default false)
+ * @param enabled Whether the socket server is enabled (default true)
  * @param port    The port to listen on (default 8192)
  */
 public record SocketConfig(boolean enabled, int port) {
@@ -16,10 +16,10 @@ public record SocketConfig(boolean enabled, int port) {
     /**
      * Returns a SocketConfig with default values.
      *
-     * @return default configuration (disabled, port 8192)
+     * @return default configuration (enabled, port 8192)
      */
     public static SocketConfig defaults() {
-        return new SocketConfig(false, DEFAULT_PORT);
+        return new SocketConfig(true, DEFAULT_PORT);
     }
 
     /**
