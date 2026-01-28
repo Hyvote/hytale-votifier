@@ -658,7 +658,7 @@ To use V2 protocol, configure tokens for each voting site in `config.json`:
 |--------|------|---------|-------------|
 | `voteSites.tokens` | object | `{}` | Map of service names to their shared secret tokens |
 
-> 🔐 **Important:** The service name in the config must exactly match the `serviceName` field sent by the voting site. Tokens are case-sensitive.
+> 🔐 **Important:** Service name lookups are case-insensitive. The service name "Hyvote" will match "hyvote", "HYVOTE", etc.
 
 #### Socket Server Configuration
 
