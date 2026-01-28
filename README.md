@@ -449,7 +449,7 @@ Health check endpoint that returns server status information.
 ```json
 {
   "status": "ok",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "serverType": "HytaleVotifier",
   "protocols": {
     "v1": true,
