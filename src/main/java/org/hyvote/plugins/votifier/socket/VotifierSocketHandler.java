@@ -3,6 +3,9 @@ package org.hyvote.plugins.votifier.socket;
 import com.google.gson.Gson;
 import com.hypixel.hytale.server.core.HytaleServer;
 import org.hyvote.plugins.votifier.HytaleVotifierPlugin;
+import org.hyvote.plugins.votifier.ProtocolConfig;
+import org.hyvote.plugins.votifier.crypto.CryptoUtil;
+import org.hyvote.plugins.votifier.crypto.VoteDecryptionException;
 import org.hyvote.plugins.votifier.event.VoteEvent;
 import org.hyvote.plugins.votifier.util.BroadcastUtil;
 import org.hyvote.plugins.votifier.util.RewardCommandUtil;
@@ -12,6 +15,7 @@ import org.hyvote.plugins.votifier.vote.V2SignatureException;
 import org.hyvote.plugins.votifier.vote.V2VoteParser;
 import org.hyvote.plugins.votifier.vote.Vote;
 import org.hyvote.plugins.votifier.vote.VoteParseException;
+import org.hyvote.plugins.votifier.vote.VoteParser;
 
 import java.io.DataInputStream;
 import java.io.IOException;
@@ -25,13 +29,27 @@ import java.util.Base64;
 import java.util.logging.Level;
 
 /**
- * Handles a single V2 protocol socket connection.
+ * Handles a single socket connection for both V1 and V2 protocols.
  *
- * <p>Protocol flow:</p>
+ * <p>Protocol detection:</p>
+ * <ul>
+ *   <li>V2 is detected by magic bytes 0x733A at the start of the payload</li>
+ *   <li>V1 is assumed for any other payload (256 bytes of RSA-encrypted data)</li>
+ * </ul>
+ *
+ * <p>V2 Protocol flow:</p>
  * <ol>
  *   <li>Send greeting with challenge: "VOTIFIER 2 &lt;challenge&gt;\n"</li>
  *   <li>Read V2 binary packet: 0x733A + length + JSON</li>
  *   <li>Parse and validate vote (signature + challenge)</li>
+ *   <li>Send JSON response</li>
+ * </ol>
+ *
+ * <p>V1 Protocol flow:</p>
+ * <ol>
+ *   <li>Send greeting with challenge: "VOTIFIER 2 &lt;challenge&gt;\n"</li>
+ *   <li>Read 256 bytes of RSA-encrypted vote data</li>
+ *   <li>Decrypt with RSA private key and parse vote</li>
  *   <li>Send JSON response</li>
  * </ol>
  */
@@ -57,6 +75,11 @@ public class VotifierSocketHandler implements Runnable {
      */
     private static final int CHALLENGE_BYTES = 24;
 
+    /**
+     * V1 RSA-encrypted payload size (256 bytes for 2048-bit RSA key).
+     */
+    private static final int V1_RSA_PAYLOAD_SIZE = 256;
+
     private static final Gson GSON = new Gson();
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
@@ -81,11 +104,11 @@ public class VotifierSocketHandler implements Runnable {
             handleConnection();
         } catch (SocketTimeoutException e) {
             if (plugin.getConfig().debug()) {
-                plugin.getLogger().at(Level.WARNING).log("V2 socket connection timed out from %s",
+                plugin.getLogger().at(Level.WARNING).log("Socket connection timed out from %s",
                         socket.getRemoteSocketAddress());
             }
         } catch (Exception e) {
-            plugin.getLogger().at(Level.WARNING).log("Error handling V2 socket connection: %s", e.getMessage());
+            plugin.getLogger().at(Level.WARNING).log("Error handling socket connection: %s", e.getMessage());
         } finally {
             closeSocket();
         }
@@ -100,18 +123,83 @@ public class VotifierSocketHandler implements Runnable {
         writer.write("VOTIFIER 2 " + challenge + "\n");
         writer.flush();
 
-        // Read V2 packet
+        // Read first 2 bytes to detect protocol
         DataInputStream dis = new DataInputStream(socket.getInputStream());
+        byte[] firstTwoBytes = new byte[2];
+        dis.readFully(firstTwoBytes);
+        int magic = ((firstTwoBytes[0] & 0xFF) << 8) | (firstTwoBytes[1] & 0xFF);
 
-        // Read and verify magic bytes
-        int magic = dis.readShort() & 0xFFFF;
-        if (magic != V2_MAGIC) {
-            sendError(writer, "Invalid protocol magic");
-            plugin.getLogger().at(Level.WARNING).log("Invalid V2 magic bytes from %s: 0x%04X",
-                    socket.getRemoteSocketAddress(), magic);
+        if (magic == V2_MAGIC) {
+            // V2 protocol detected
+            handleV2Connection(dis, writer, challenge);
+        } else if (firstTwoBytes[0] == 0x16 && firstTwoBytes[1] == 0x03) {
+            // TLS ClientHello detected (0x16 = handshake, 0x03 = TLS version prefix)
+            // Note: ~0.0015% chance of false positive with random RSA-encrypted data
+            sendError(writer, "TLS/SSL not supported - use plain TCP connection");
+            plugin.getLogger().at(Level.WARNING).log("TLS handshake rejected from %s: socket server does not support TLS",
+                    socket.getRemoteSocketAddress());
+        } else {
+            // Not V2 magic bytes - treat as V1 RSA-encrypted payload
+            handleV1Connection(dis, writer, firstTwoBytes);
+        }
+    }
+
+    private void handleV1Connection(DataInputStream dis, Writer writer, byte[] firstTwoBytes) throws IOException {
+        // Check if V1 protocol is enabled
+        ProtocolConfig protocols = plugin.getConfig().protocols();
+        if (protocols == null || !Boolean.TRUE.equals(protocols.v1Enabled())) {
+            sendError(writer, "V1 protocol is disabled");
+            plugin.getLogger().at(Level.WARNING).log("V1 vote rejected from %s: V1 protocol is disabled",
+                    socket.getRemoteSocketAddress());
             return;
         }
 
+        // Read remaining bytes (256 - 2 = 254 bytes for standard RSA payload)
+        byte[] remainingBytes = new byte[V1_RSA_PAYLOAD_SIZE - 2];
+        dis.readFully(remainingBytes);
+
+        // Combine first two bytes with remaining bytes
+        byte[] encryptedPayload = new byte[V1_RSA_PAYLOAD_SIZE];
+        encryptedPayload[0] = firstTwoBytes[0];
+        encryptedPayload[1] = firstTwoBytes[1];
+        System.arraycopy(remainingBytes, 0, encryptedPayload, 2, remainingBytes.length);
+
+        // Decrypt and parse V1 vote
+        Vote vote;
+        try {
+            byte[] decryptedData = CryptoUtil.decrypt(encryptedPayload, plugin.getKeyManager().getPrivateKey());
+            vote = VoteParser.parse(decryptedData);
+        } catch (VoteDecryptionException e) {
+            sendError(writer, "Decryption failed");
+            plugin.getLogger().at(Level.WARNING).log("V1 decryption error from %s: %s",
+                    socket.getRemoteSocketAddress(), e.getMessage());
+            if (plugin.getConfig().debug()) {
+                plugin.getLogger().at(Level.INFO).log("V1 raw payload (first 64 bytes hex): %s",
+                        bytesToHex(encryptedPayload, 64));
+                plugin.getLogger().at(Level.INFO).log("V1 raw payload (as string): %s",
+                        new String(encryptedPayload, StandardCharsets.ISO_8859_1).substring(0, Math.min(64, encryptedPayload.length)));
+            }
+            return;
+        } catch (VoteParseException e) {
+            sendError(writer, "Invalid vote format: " + e.getMessage());
+            plugin.getLogger().at(Level.WARNING).log("V1 parse error from %s: %s",
+                    socket.getRemoteSocketAddress(), e.getMessage());
+            return;
+        }
+
+        // Process the vote
+        processVote(vote);
+
+        // Send success response
+        sendSuccess(writer);
+
+        if (plugin.getConfig().debug()) {
+            plugin.getLogger().at(Level.INFO).log("Received V1 socket vote from %s: service=%s, username=%s",
+                    socket.getRemoteSocketAddress(), vote.serviceName(), vote.username());
+        }
+    }
+
+    private void handleV2Connection(DataInputStream dis, Writer writer, String challenge) throws IOException {
         // Read message length
         int length = dis.readShort() & 0xFFFF;
         if (length <= 0 || length > MAX_MESSAGE_LENGTH) {
@@ -200,6 +288,18 @@ public class VotifierSocketHandler implements Runnable {
         } catch (IOException e) {
             // Ignore close errors
         }
+    }
+
+    private static String bytesToHex(byte[] bytes, int maxBytes) {
+        StringBuilder sb = new StringBuilder();
+        int limit = Math.min(bytes.length, maxBytes);
+        for (int i = 0; i < limit; i++) {
+            sb.append(String.format("%02X ", bytes[i]));
+        }
+        if (bytes.length > maxBytes) {
+            sb.append("...");
+        }
+        return sb.toString().trim();
     }
 
     /**
