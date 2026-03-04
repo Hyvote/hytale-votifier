@@ -13,7 +13,7 @@
     <description>Votifier-style plugin for Hytale that receives vote notifications via HTTP</description>
 
     <properties>
-        <revision>1.1.1</revision>
+        <revision>1.2.0</revision>
         <maven.compiler.source>25</maven.compiler.source>
         <maven.compiler.target>25</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -31,7 +31,7 @@
         <dependency>
             <groupId>com.hytale</groupId>
             <artifactId>hytale-server</artifactId>
-            <version>1.0.0</version>
+            <version>2026.02.19-1a311a592</version>
             <scope>system</scope>
             <systemPath>${project.basedir}/HytaleServer.jar</systemPath>
         </dependency>
