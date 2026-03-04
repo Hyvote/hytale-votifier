@@ -44,7 +44,7 @@ A Votifier-style plugin for Hytale that receives vote notifications from voting 
 2. **Copy the JAR** to your server's `mods/` directory:
    ```
    mods/
-   └── HytaleVotifier-1.0.0.jar
+   └── HytaleVotifier-1.2.0.jar
    ```
 
 3. **(Optional) Install Nitrado:WebServer** — If available, HytaleVotifier uses it for HTTP handling. Otherwise, a built-in fallback HTTP server is automatically started on port 8080
@@ -449,7 +449,7 @@ Health check endpoint that returns server status information.
 ```json
 {
   "status": "ok",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "serverType": "HytaleVotifier",
   "protocols": {
     "v1": true,
@@ -762,7 +762,7 @@ HytaleVotifier automatically checks for updates on GitHub when the server starts
 
 When an update is available, the console displays:
 ```
-[Votifier] A new update is available: v1.1.0
+[Votifier] A new update is available: v1.2.0
 [Votifier] Download from CurseForge: https://www.curseforge.com/hytale/mods/votifier
 [Votifier] Download from GitHub: https://github.com/Hyvote/hytale-votifier/releases/latest
 ```

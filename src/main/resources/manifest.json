@@ -10,7 +10,7 @@
     ],
     "Website": "https://github.com/hyvote/hytale-votifier",
     "Main": "org.hyvote.plugins.votifier.HytaleVotifierPlugin",
-    "ServerVersion": "*",
+    "ServerVersion": "2026.02.19-1a311a592",
     "SoftDependencies": {
         "Nitrado:WebServer": "*"
     }
