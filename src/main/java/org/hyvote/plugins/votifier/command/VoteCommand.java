@@ -2,11 +2,13 @@ package org.hyvote.plugins.votifier.command;
 
 import com.hypixel.hytale.server.core.command.system.AbstractCommand;
 import com.hypixel.hytale.server.core.command.system.CommandContext;
+import com.hypixel.hytale.protocol.GameMode;
 import io.github.insideranh.talemessage.TaleMessage;
 import org.hyvote.plugins.votifier.HytaleVotifierPlugin;
 import org.hyvote.plugins.votifier.VoteCommandConfig;
 import org.hyvote.plugins.votifier.VoteSite;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -36,6 +38,12 @@ public class VoteCommand extends AbstractCommand {
     public VoteCommand(HytaleVotifierPlugin plugin) {
         super("vote", "View links to vote for the server");
         this.plugin = plugin;
+
+        // Explicit permission node allows admins to negate access per user/group if desired.
+        requirePermission("votifier.command.vote");
+
+        // Grant /vote to all gamemode groups by default.
+        setPermissionGroups(Arrays.stream(GameMode.values()).map(GameMode::toString).toArray(String[]::new));
     }
 
     @Override

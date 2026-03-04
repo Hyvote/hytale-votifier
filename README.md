@@ -777,6 +777,7 @@ Players with the appropriate permissions see a chat message with clickable links
 
 | Permission | Description |
 |------------|-------------|
+| `votifier.command.vote` | Use the `/vote` command (granted by default to all game mode groups; can be negated per user/group) |
 | `votifier.admin.testvote` | Use the `/testvote` command to fire test vote events |
 | `votifier.admin` | Receive update notifications when joining the server |
 | `votifier.admin.update_notifications` | Alternative permission for update notifications only |
